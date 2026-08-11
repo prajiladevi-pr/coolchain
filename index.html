@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoolChain FM — Service, Workforce & Vehicle Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============ tokens ============ */
+:root{
+  --ink:#0C1725;            /* deep cold ink */
+  --ink-2:#132538;
+  --ink-3:#1C3550;
+  --line:#E2E7EE;
+  --line-2:#CFD8E3;
+  --bg:#F4F6F9;
+  --card:#FFFFFF;
+  --txt:#0C1725;
+  --txt-2:#4B5D73;
+  --txt-3:#7B8CA3;
+  --cool:#0E8FA8;           /* cooling / available */
+  --cool-soft:#E3F4F8;
+  --warm:#D9822B;           /* working / heat load */
+  --warm-soft:#FBEEDD;
+  --hot:#C8453C;            /* critical / fault */
+  --hot-soft:#FBE7E5;
+  --done:#1E8E5A;           /* completed */
+  --done-soft:#E2F3EA;
+  --idle:#6B7A90;
+  --idle-soft:#EDF0F4;
+  --violet:#5B54B8;
+  --violet-soft:#EBEAF8;
+  --r:10px;
+  --shadow:0 1px 2px rgba(12,23,37,.06),0 8px 24px -12px rgba(12,23,37,.18);
+  --shadow-lg:0 24px 60px -20px rgba(12,23,37,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--txt);
+  font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,h5{font-family:Archivo,Inter,sans-serif;margin:0;letter-spacing:-.01em}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--cool)}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt-3)}
+:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ============ login ============ */
+#login{position:fixed;inset:0;display:grid;grid-template-columns:1.05fr .95fr;background:var(--ink);z-index:60}
+.lg-art{position:relative;overflow:hidden;padding:56px;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+.lg-art:before{content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(900px 520px at 12% 8%,rgba(14,143,168,.55),transparent 60%),
+    radial-gradient(700px 480px at 88% 92%,rgba(91,84,184,.42),transparent 62%);}
+.lg-art:after{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:46px 46px;mask-image:linear-gradient(180deg,#000,transparent 85%)}
+.lg-art>*{position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(150deg,#17B7D4,#0E8FA8 55%,#5B54B8);display:grid;place-items:center;flex:none;box-shadow:0 6px 18px -6px rgba(23,183,212,.8)}
+.brand-name{font-family:Archivo;font-weight:800;font-size:17px;letter-spacing:-.02em;line-height:1.05}
+.brand-name span{display:block;font-family:'IBM Plex Mono';font-weight:400;font-size:9.5px;letter-spacing:.2em;color:rgba(255,255,255,.55);text-transform:uppercase}
+.lg-head{font-size:46px;font-weight:800;line-height:1.02;max-width:14ch;letter-spacing:-.03em}
+.lg-head em{font-style:normal;color:#5EDCF0}
+.lg-sub{max-width:44ch;color:rgba(255,255,255,.66);margin-top:18px;font-size:14.5px}
+.lg-strip{display:flex;gap:0;border:1px solid rgba(255,255,255,.14);border-radius:12px;overflow:hidden;backdrop-filter:blur(4px);background:rgba(255,255,255,.04)}
+.lg-strip div{flex:1;padding:14px 16px;border-right:1px solid rgba(255,255,255,.1)}
+.lg-strip div:last-child{border:0}
+.lg-strip b{font-family:'IBM Plex Mono';font-size:20px;display:block;color:#fff}
+.lg-strip small{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.lg-form{background:#fff;display:grid;place-items:center;padding:40px}
+.lg-box{width:100%;max-width:352px}
+.lg-box h2{font-size:26px;font-weight:700}
+.lg-box p.hint{color:var(--txt-2);margin:6px 0 26px}
+.demo-note{margin-top:20px;border:1px dashed var(--line-2);border-radius:var(--r);padding:12px 14px;background:#FAFBFD;font-size:12.5px;color:var(--txt-2)}
+.demo-note b{color:var(--txt);font-family:'IBM Plex Mono'}
+.err{background:var(--hot-soft);border:1px solid #F1C9C5;color:#8E2F28;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none}
+
+/* ============ form controls ============ */
+.field{margin-bottom:14px}
+.field>label{display:block;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2);margin-bottom:6px}
+.inp,select.inp,textarea.inp{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.inp:focus{border-color:var(--cool);box-shadow:0 0 0 3px rgba(14,143,168,.14);outline:none}
+textarea.inp{min-height:84px;resize:vertical}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5D73' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
+.btn{border:1px solid var(--line-2);background:#fff;padding:9px 15px;border-radius:8px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:.15s;white-space:nowrap}
+.btn:hover{border-color:var(--txt-3);background:#FAFBFD}
+.btn-p{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn-p:hover{background:var(--ink-3);border-color:var(--ink-3)}
+.btn-cool{background:var(--cool);border-color:var(--cool);color:#fff}
+.btn-cool:hover{background:#0B7A90;border-color:#0B7A90}
+.btn-warm{background:var(--warm);border-color:var(--warm);color:#fff}
+.btn-warm:hover{background:#C2721F;border-color:#C2721F}
+.btn-done{background:var(--done);border-color:var(--done);color:#fff}
+.btn-done:hover{background:#166F46;border-color:#166F46}
+.btn-danger{color:var(--hot);border-color:#EBC6C2}
+.btn-danger:hover{background:var(--hot-soft)}
+.btn-w{width:100%;justify-content:center;padding:11px}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:7px}
+.btn-icon{padding:6px;width:30px;height:30px;justify-content:center;border-radius:7px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt-2)}
+.check input{width:15px;height:15px;accent-color:var(--cool)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 14px}
+.switch{position:relative;width:38px;height:21px;border-radius:20px;background:var(--line-2);border:0;transition:.18s;flex:none}
+.switch:after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch.on{background:var(--cool)}
+.switch.on:after{left:19px}
+
+/* ============ shell ============ */
+#app{display:none;height:100%;grid-template-columns:246px 1fr;grid-template-rows:100%}
+#app.on{display:grid}
+.side{background:var(--ink);color:#fff;display:flex;flex-direction:column;overflow:hidden}
+.side-top{padding:18px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.nav{flex:1;overflow-y:auto;padding:12px 10px 20px}
+.nav-lbl{font-family:'IBM Plex Mono';font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:16px 10px 7px}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;color:rgba(255,255,255,.72);text-decoration:none;font-size:13.5px;font-weight:500;margin-bottom:2px;position:relative}
+.nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav a.on{background:rgba(23,183,212,.16);color:#fff}
+.nav a.on:before{content:"";position:absolute;left:-10px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:#17B7D4}
+.nav a svg{flex:none;opacity:.85}
+.nav .pill{margin-left:auto;font-family:'IBM Plex Mono';font-size:10.5px;background:rgba(255,255,255,.13);padding:1px 6px;border-radius:20px}
+.nav .pill.hot{background:var(--hot);color:#fff}
+.side-foot{padding:12px;border-top:1px solid rgba(255,255,255,.08)}
+.side-user{display:flex;align-items:center;gap:10px;padding:8px;border-radius:9px;background:rgba(255,255,255,.05)}
+.side-user b{display:block;font-size:12.5px}
+.side-user small{color:rgba(255,255,255,.45);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-family:'IBM Plex Mono'}
+
+.main{overflow-y:auto;height:100%;position:relative}
+.top{position:sticky;top:0;z-index:20;background:rgba(244,246,249,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:14px 26px;display:flex;align-items:center;gap:14px}
+.top h1{font-size:20px;font-weight:700}
+.top .sub{color:var(--txt-3);font-size:12.5px}
+.top-r{margin-left:auto;display:flex;align-items:center;gap:9px}
+.clock{font-family:'IBM Plex Mono';font-size:12px;color:var(--txt-2);background:#fff;border:1px solid var(--line);padding:7px 11px;border-radius:8px}
+.bell{position:relative}
+.bell .dot{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:20px;background:var(--hot);color:#fff;font-size:10px;font-family:'IBM Plex Mono';display:grid;place-items:center;padding:0 4px;border:2px solid var(--bg)}
+.wrap{padding:22px 26px 60px;max-width:1560px}
+
+/* ============ cards / stats ============ */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.card-h h3{font-size:14.5px;font-weight:700}
+.card-h .btn{margin-left:auto}
+.card-b{padding:16px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin:26px 0 12px}
+.sec-h h2{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sec-h .rule{flex:1;height:1px;background:var(--line-2)}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;position:relative;overflow:hidden}
+.stat:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--idle)}
+.stat.c:before{background:var(--cool)}.stat.w:before{background:var(--warm)}
+.stat.d:before{background:var(--done)}.stat.h:before{background:var(--hot)}
+.stat.v:before{background:var(--violet)}
+.stat .k{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-3);font-weight:600;min-height:26px}
+.stat .v{font-family:'IBM Plex Mono';font-size:27px;font-weight:600;line-height:1.1;letter-spacing:-.02em}
+.stat .m{font-size:11.5px;color:var(--txt-3);margin-top:2px}
+
+/* gauge — signature element */
+.gauge{background:var(--ink);border-radius:var(--r);padding:18px 20px;color:#fff;overflow:hidden;position:relative}
+.gauge:after{content:"";position:absolute;inset:0;background:radial-gradient(600px 200px at 90% 120%,rgba(23,183,212,.35),transparent 70%)}
+.gauge>*{position:relative;z-index:2}
+.gauge-row{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap}
+.gauge-num{font-family:'IBM Plex Mono';font-size:42px;font-weight:600;line-height:.95;letter-spacing:-.03em}
+.gauge-num small{font-size:13px;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;display:block;font-weight:400;margin-bottom:5px}
+.bar{display:flex;height:11px;border-radius:20px;overflow:hidden;background:rgba(255,255,255,.12);margin-top:16px}
+.bar i{display:block;height:100%}
+.bar-key{display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:rgba(255,255,255,.7)}
+.bar-key span{display:flex;align-items:center;gap:6px}
+.bar-key b{width:8px;height:8px;border-radius:3px;display:block}
+
+/* ============ tables ============ */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-3);font-weight:700;text-align:left;padding:10px 12px;background:#FAFBFD;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:hover{background:#FAFCFE}
+tbody tr:last-child td{border-bottom:0}
+td .acts{display:flex;gap:5px}
+.t-empty{padding:44px 20px;text-align:center;color:var(--txt-3)}
+.t-empty b{display:block;color:var(--txt);font-family:Archivo;font-size:15px;margin-bottom:5px}
+
+/* ============ badges ============ */
+.b{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;letter-spacing:.03em;white-space:nowrap;border:1px solid transparent}
+.b i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.b-cool{background:var(--cool-soft);color:#0A6E82;border-color:#C6E8F0}
+.b-warm{background:var(--warm-soft);color:#96581A;border-color:#F2DCBE}
+.b-hot{background:var(--hot-soft);color:#98322B;border-color:#F1CCC8}
+.b-done{background:var(--done-soft);color:#146342;border-color:#C7E6D5}
+.b-idle{background:var(--idle-soft);color:#556579;border-color:#DDE3EB}
+.b-violet{background:var(--violet-soft);color:#403A96;border-color:#D6D3F1}
+.b-sq{border-radius:5px}
+.avatar{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;font-family:Archivo;flex:none;letter-spacing:.02em}
+.who{display:flex;align-items:center;gap:9px}
+.who b{font-weight:600;display:block;font-size:13px}
+.who small{color:var(--txt-3);font-size:11px;font-family:'IBM Plex Mono'}
+.sr-no{font-family:'IBM Plex Mono';font-weight:600;color:var(--ink);background:#EEF2F6;padding:2px 7px;border-radius:5px;font-size:12px;border:1px solid var(--line)}
+
+/* ============ toolbar ============ */
+.bar-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:#FCFDFE}
+.bar-tools .inp{width:auto;padding:7px 11px;font-size:12.5px}
+.search{position:relative;flex:1;min-width:190px;max-width:320px}
+.search .inp{width:100%;padding-left:32px}
+.search svg{position:absolute;left:10px;top:9px;color:var(--txt-3)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line-2);background:#fff;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;color:var(--txt-2)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip .n{font-family:'IBM Plex Mono';opacity:.65;margin-left:4px}
+
+/* ============ tabs ============ */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 16px;background:#fff;border-radius:var(--r) var(--r) 0 0;overflow-x:auto}
+.tab{border:0;background:none;padding:12px 13px;font-size:13px;font-weight:600;color:var(--txt-3);border-bottom:2px solid transparent;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--cool)}
+
+/* ============ modal / drawer ============ */
+.veil{position:fixed;inset:0;background:rgba(12,23,37,.5);backdrop-filter:blur(3px);z-index:90;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .18s}
+@keyframes fade{from{opacity:0}}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:720px;max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg);animation:pop .2s ease-out}
+.modal.wide{max-width:1020px}
+.modal.slim{max-width:470px}
+@keyframes pop{from{transform:translateY(14px) scale(.98);opacity:0}}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex:none}
+.modal-h h3{font-size:16.5px;font-weight:700}
+.modal-h .eyebrow{margin-bottom:2px}
+.modal-h .x{margin-left:auto;border:0;background:#F1F4F8;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--txt-2)}
+.modal-h .x:hover{background:var(--hot-soft);color:var(--hot)}
+.modal-b{padding:20px;overflow-y:auto;flex:1}
+.modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end;background:#FCFDFE;border-radius:0 0 14px 14px;flex:none;flex-wrap:wrap}
+.modal-f .l{margin-right:auto}
+
+/* ============ toast ============ */
+#toasts{position:fixed;bottom:22px;right:22px;z-index:99;display:flex;flex-direction:column;gap:9px;max-width:360px}
+.toast{background:var(--ink);color:#fff;padding:12px 15px;border-radius:10px;box-shadow:var(--shadow-lg);display:flex;gap:11px;align-items:flex-start;animation:slide .22s ease-out;font-size:13px}
+@keyframes slide{from{transform:translateX(30px);opacity:0}}
+.toast b{display:block;font-family:Archivo;font-size:13.5px;margin-bottom:1px}
+.toast small{color:rgba(255,255,255,.65);font-size:12px}
+.toast .ic{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:none;background:var(--cool)}
+.toast.ok .ic{background:var(--done)}.toast.warn .ic{background:var(--warm)}.toast.err .ic{background:var(--hot)}
+
+/* ============ misc blocks ============ */
+.kv{display:grid;grid-template-columns:132px 1fr;gap:7px 14px;font-size:13px}
+.kv dt{color:var(--txt-3);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding-top:2px}
+.kv dd{margin:0;font-weight:500}
+.panel{background:#FAFBFD;border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.panel-t{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt-3);margin-bottom:10px}
+.tl{list-style:none;margin:0;padding:0 0 0 20px;border-left:2px solid var(--line-2)}
+.tl li{position:relative;padding:0 0 15px 14px}
+.tl li:last-child{padding-bottom:0}
+.tl li:before{content:"";position:absolute;left:-21px;top:4px;width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid var(--line-2)}
+.tl li.acc:before{border-color:var(--cool);background:var(--cool)}
+.tl b{font-size:13px;display:block}
+.tl time{font-family:'IBM Plex Mono';font-size:11px;color:var(--txt-3)}
+.tl p{margin:2px 0 0;color:var(--txt-2);font-size:12.5px}
+.res{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-bottom:6px;font-size:13px}
+.res.pick{border-color:var(--cool);box-shadow:0 0 0 2px rgba(14,143,168,.12)}
+.res .st{margin-left:auto}
+.notif{display:flex;gap:11px;padding:13px 15px;border-bottom:1px solid var(--line);position:relative}
+.notif.un{background:#F5FBFD}
+.notif.un:before{content:"";position:absolute;left:5px;top:19px;width:5px;height:5px;border-radius:50%;background:var(--cool)}
+.notif .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none}
+.notif b{display:block;font-size:13.5px;font-family:Archivo}
+.notif p{margin:2px 0 0;color:var(--txt-2);font-size:12.5px;white-space:pre-line}
+.notif time{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--txt-3);margin-left:auto;flex:none}
+.items-tbl input,.items-tbl select{border:1px solid var(--line-2);border-radius:6px;padding:7px 8px;width:100%;font-size:12.5px;background:#fff}
+.mini-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.mini{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:#fff}
+.mini-h{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.mini .kv{grid-template-columns:74px 1fr;font-size:12.5px;gap:4px 10px}
+.live{font-family:'IBM Plex Mono';font-weight:600;color:var(--warm)}
+.chart-box{position:relative;height:236px}
+.chart-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+.chart-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.legend{display:flex;flex-wrap:wrap;gap:11px;margin-top:12px;font-size:12px;color:var(--txt-2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend b{width:9px;height:9px;border-radius:3px}
+
+/* ============ phone ============ */
+.phone-veil{position:fixed;inset:0;background:rgba(8,16,26,.72);backdrop-filter:blur(5px);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
+.phone-veil.on{display:flex}
+.phone-stage{display:flex;align-items:center;gap:26px}
+.phone-tip{max-width:236px;color:rgba(255,255,255,.8);font-size:13px}
+.phone-tip h4{color:#fff;font-size:16px;margin-bottom:8px;font-family:Archivo}
+.phone-tip ul{padding-left:17px;margin:0 0 16px}
+.phone-tip li{margin-bottom:5px}
+.phone{width:392px;height:min(812px,94vh);background:#fff;border-radius:42px;border:11px solid #0A121C;box-shadow:0 40px 90px -30px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.1);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.phone-notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:104px;height:22px;background:#0A121C;border-radius:20px;z-index:9}
+.ph-status{padding:13px 22px 5px;display:flex;font-size:11px;font-family:'IBM Plex Mono';color:var(--txt);flex:none}
+.ph-status .r{margin-left:auto;display:flex;gap:5px;align-items:center}
+.ph-top{padding:6px 18px 12px;display:flex;align-items:center;gap:10px;flex:none;border-bottom:1px solid var(--line)}
+.ph-top h3{font-size:17px;font-weight:700}
+.ph-top small{color:var(--txt-3);font-size:11px;font-family:'IBM Plex Mono';letter-spacing:.08em;text-transform:uppercase}
+.ph-top .r{margin-left:auto;display:flex;gap:7px;align-items:center}
+.ph-body{flex:1;overflow-y:auto;padding:14px 16px 26px;background:var(--bg)}
+.ph-nav{flex:none;display:flex;border-top:1px solid var(--line);background:#fff;padding:7px 4px 12px}
+.ph-nav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:600;color:var(--txt-3);padding:5px 2px;letter-spacing:.03em;position:relative}
+.ph-nav button.on{color:var(--cool)}
+.ph-nav .n{position:absolute;top:0;right:50%;margin-right:-20px;background:var(--hot);color:#fff;font-size:9px;min-width:15px;height:15px;border-radius:20px;display:grid;place-items:center;font-family:'IBM Plex Mono';padding:0 3px}
+.ph-stat{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.ph-stat div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+.ph-stat b{font-family:'IBM Plex Mono';font-size:21px;display:block;line-height:1.1}
+.ph-stat small{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);font-weight:600}
+.job{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px;box-shadow:var(--shadow)}
+.job-h{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.job h4{font-size:14.5px;margin:0 0 2px}
+.job .loc{color:var(--txt-2);font-size:12px;margin:0 0 9px;display:flex;gap:5px;align-items:center}
+.job .desc{font-size:12.5px;color:var(--txt-2);background:#FAFBFD;border:1px solid var(--line);border-radius:8px;padding:9px;margin-bottom:9px}
+.job .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px;margin-bottom:11px}
+.job .meta span{color:var(--txt-3);font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;display:block}
+.job .btn{width:100%;justify-content:center}
+.hero-job{background:var(--ink);color:#fff;border-radius:14px;padding:15px;margin-bottom:14px;position:relative;overflow:hidden}
+.hero-job:after{content:"";position:absolute;inset:0;background:radial-gradient(420px 160px at 100% 0,rgba(217,130,43,.4),transparent 65%)}
+.hero-job>*{position:relative;z-index:2}
+.hero-job h4{font-size:16px;margin:3px 0 3px}
+.hero-job .timer{font-family:'IBM Plex Mono';font-size:32px;font-weight:600;letter-spacing:-.02em;margin:10px 0 2px}
+.hero-job .team{border-top:1px solid rgba(255,255,255,.15);margin-top:12px;padding-top:11px;font-size:12px;color:rgba(255,255,255,.75);display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.hero-job .team span{display:block;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(255,255,255,.45);font-weight:600}
+.ph-sec{font-family:'IBM Plex Mono';font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--txt-3);margin:18px 0 9px}
+.ph-sec:first-child{margin-top:0}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -18px 50px -12px rgba(0,0,0,.4);z-index:12;max-height:88%;display:flex;flex-direction:column;animation:up .24s ease-out}
+@keyframes up{from{transform:translateY(100%)}}
+.sheet-h{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex:none}
+.sheet-h h4{font-size:16px}
+.sheet-b{padding:16px 18px;overflow-y:auto}
+.sheet-f{padding:12px 18px 18px;border-top:1px solid var(--line);display:flex;gap:8px;flex:none}
+.sheet-f .btn{flex:1;justify-content:center}
+.grab{width:38px;height:4px;border-radius:4px;background:var(--line-2);margin:8px auto 0}
+.ph-mask{position:absolute;inset:0;background:rgba(12,23,37,.42);z-index:11;animation:fade .18s}
+
+@media(max-width:1180px){.chart-grid,.chart-grid-3{grid-template-columns:1fr}}
+@media(max-width:960px){
+  #login{grid-template-columns:1fr}.lg-art{display:none}
+  #app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .side{flex-direction:row;align-items:center;overflow-x:auto}
+  .side-top{border-bottom:0;padding:11px 12px;flex:none}
+  .side-top .brand-name span{display:none}
+  .nav{display:flex;gap:4px;padding:8px;flex:1;overflow-x:auto}
+  .nav-lbl{display:none}
+  .nav a{white-space:nowrap;margin:0}
+  .nav a.on:before{display:none}
+  .side-foot{border-top:0;padding:8px;flex:none}
+  .side-foot .btn{margin-bottom:0!important;width:auto}
+  .side-user{display:none}
+  .phone-tip{display:none}
+  .wrap{padding:16px 14px 50px}
+  .top{padding:12px 14px;flex-wrap:wrap}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .stat-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))!important}
+}
+@media(max-width:460px){.phone{width:100%;height:100%;border-radius:0;border-width:0}.phone-veil{padding:0}}
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login">
+  <div class="lg-art">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg>
+      </div>
+      <div class="brand-name">CoolChain FM<span>Service Operations Platform</span></div>
+    </div>
+    <div>
+      <div class="eyebrow" style="color:rgba(255,255,255,.5)">HVAC &amp; Cold Chain Field Service — UAE</div>
+      <h1 class="lg-head" style="margin-top:14px">Every call, <em>every crew</em>, every van.</h1>
+      <p class="lg-sub">Register service requests, allocate supervisors, technicians, drivers and vehicles, then watch the job run to completion in real time.</p>
+    </div>
+    <div class="lg-strip">
+      <div><b id="lgSR">—</b><small>Open requests</small></div>
+      <div><b id="lgCrew">—</b><small>Field crew</small></div>
+      <div><b id="lgVeh">—</b><small>Service vans</small></div>
+    </div>
+  </div>
+  <div class="lg-form">
+    <div class="lg-box">
+      <div class="brand" style="margin-bottom:26px">
+        <div class="brand-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg></div>
+        <div class="brand-name" style="color:var(--ink)">CoolChain FM<span style="color:var(--txt-3)">Service Operations Platform</span></div>
+      </div>
+      <h2>Sign in</h2>
+      <p class="hint">Service, workforce and vehicle control in one place.</p>
+      <div class="err" id="lgErr"></div>
+      <div class="field"><label for="u">Username</label><input class="inp" id="u" autocomplete="username" placeholder="admin"></div>
+      <div class="field"><label for="p">Password</label><input class="inp" id="p" type="password" autocomplete="current-password" placeholder="••••••"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 20px">
+        <label class="check"><input type="checkbox" id="rem"> Remember me</label>
+        <a href="#" onclick="toast('Password reset','A reset link would be emailed to the registered address.');return false" style="font-size:12.5px;font-weight:600;text-decoration:none">Forgot password?</a>
+      </div>
+      <button class="btn btn-p btn-w" onclick="doLogin()">Sign in</button>
+      <div class="demo-note">Demo credentials — username <b>admin</b> / password <b>admin</b>. All data is local to this prototype.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== APP SHELL ===================== -->
+<div id="app">
+  <aside class="side">
+    <div class="side-top">
+      <div class="brand">
+        <div class="brand-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/></svg></div>
+        <div class="brand-name">CoolChain FM<span>Service Operations</span></div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <button class="btn btn-w" style="margin-bottom:9px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#fff" onclick="openPhone('admin')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg> Open App
+      </button>
+      <div class="side-user">
+        <div class="avatar" style="background:linear-gradient(140deg,#17B7D4,#5B54B8)">AD</div>
+        <div style="min-width:0"><b>System Administrator</b><small>Administrator</small></div>
+        <button class="btn btn-icon" style="margin-left:auto;background:transparent;border-color:rgba(255,255,255,.16);color:#fff" title="Sign out" onclick="logout()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    <header class="top">
+      <div>
+        <div class="eyebrow" id="crumb">Overview</div>
+        <h1 id="pageTitle">Dashboard</h1>
+      </div>
+      <div class="top-r">
+        <span class="clock" id="clock">—</span>
+        <button class="btn btn-icon bell" onclick="go('notifications')" title="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dot" id="bellDot" style="display:none">0</span>
+        </button>
+        <button class="btn" onclick="openPhone('sup')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg> Supervisor App
+        </button>
+        <button class="btn btn-cool" onclick="openSR()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg> New Service Request
+        </button>
+      </div>
+    </header>
+    <div class="wrap" id="view"></div>
+  </main>
+</div>
+
+<!-- ===================== PHONE ===================== -->
+<div class="phone-veil" id="phoneVeil">
+  <div class="phone-stage">
+    <div class="phone-tip" id="phoneTip"></div>
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="ph-status"><span id="phClock">10:00</span><span class="r">▮▮▮ ⌁ 84%</span></div>
+      <div class="ph-top" id="phTop"></div>
+      <div class="ph-body" id="phBody"></div>
+      <div class="ph-nav" id="phNav"></div>
+      <div id="phOverlay"></div>
+    </div>
+    <div>
+      <button class="btn" style="background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#fff" onclick="closePhone()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg> Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"></div>
+
+<script>
+/* =====================================================================
+   CoolChain FM — Service / Workforce / Vehicle Management prototype
+   Frontend only. State in JS, mirrored to localStorage when available.
+   ===================================================================== */
+
+/* ---------- persistence (degrades to memory if storage is blocked) ---------- */
+const KEY='coolchain.v1';
+let mem={};
+const store={
+  get(k){try{const v=localStorage.getItem(k);return v===null?(k in mem?mem[k]:null):v}catch(e){return k in mem?mem[k]:null}},
+  set(k,v){mem[k]=v;try{localStorage.setItem(k,v)}catch(e){}},
+  del(k){delete mem[k];try{localStorage.removeItem(k)}catch(e){}}
+};
+
+/* ---------- small helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const uid=p=>p+'-'+Math.random().toString(36).slice(2,7);
+const D=(y,m,d,h=9,mi=0)=>new Date(y,m-1,d,h,mi).getTime();
+const now=()=>Date.now();
+function fmtDate(ts){if(!ts)return '—';const d=new Date(ts);return `${pad(d.getDate())} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`}
+function fmtTime(ts){if(!ts)return '—';const d=new Date(ts);let h=d.getHours(),ap=h<12?'AM':'PM';h=h%12||12;return `${pad(h)}:${pad(d.getMinutes())} ${ap}`}
+function fmtDT(ts){return ts?fmtDate(ts)+' · '+fmtTime(ts):'—'}
+function dur(ms){const t=Math.max(0,Math.floor(ms/1000));return `${pad(Math.floor(t/3600))}:${pad(Math.floor(t%3600/60))}:${pad(t%60)}`}
+function hoursOf(a,b){if(!a||!b)return null;return Math.round((b-a)/36e5*100)/100}
+function isToday(ts){if(!ts)return false;const a=new Date(ts),b=new Date();return a.toDateString()===b.toDateString()}
+function daysAgo(n){const d=new Date();d.setDate(d.getDate()-n);d.setHours(10,0,0,0);return d.getTime()}
+function ago(ts){const s=Math.floor((now()-ts)/1000);if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+const AV=['#0E8FA8','#5B54B8','#D9822B','#1E8E5A','#C8453C','#2E6B9E','#8A4FA8','#0F7B6C'];
+function avColor(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return AV[h%AV.length]}
+function initials(n){return String(n).trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+function av(name,size){const s=size||30;return `<div class="avatar" style="background:${avColor(name)};width:${s}px;height:${s}px;font-size:${Math.round(s*.36)}px">${esc(initials(name))}</div>`}
+function icon(n,sz){const s=sz||16;const P={
+ dash:'<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+ clip:'<path d="M9 2h6v3H9zM7 5H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M8 12h8M8 16h5"/>',
+ users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 19 7a4 4 0 0 1-3 3.87"/>',
+ van:'<path d="M1 16V7a1 1 0 0 1 1-1h11v10M13 8h4l4 4v4h-2"/><circle cx="6" cy="17" r="2"/><circle cx="17.5" cy="17" r="2"/><path d="M8 17h7.5M1 16h2"/>',
+ shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+ pulse:'<path d="M22 12h-4l-3 8-4-16-3 8H2"/>',
+ chart:'<path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/>',
+ bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>',
+ eye:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+ pen:'<path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',
+ send:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+ hist:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 8v4l3 2"/>',
+ pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+ play:'<path d="M6 3l14 9-14 9z"/>',
+ check:'<path d="M20 6 9 17l-5-5"/>',
+ x:'<path d="M18 6 6 18M6 6l12 12"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4.5-4.5"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+ dl:'<path d="M12 3v12M7 11l5 5 5-5M4 21h16"/>',
+ home:'<path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+ flag:'<path d="M4 22V3h11l-1.5 4L15 11H4"/>',
+ wrench:'<path d="M14.5 3a5.5 5.5 0 0 0-5 8.2L3 17.7V21h3.3l6.5-6.5A5.5 5.5 0 1 0 14.5 3z"/>'
+ };
+ return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${P[n]||''}</svg>`}
+
+function toast(title,msg,kind){
+  const el=document.createElement('div');
+  el.className='toast '+(kind||'');
+  const ic=kind==='ok'?'check':kind==='err'?'x':kind==='warn'?'flag':'pulse';
+  el.innerHTML=`<span class="ic">${icon(ic,13)}</span><div><b>${esc(title)}</b>${msg?`<small>${esc(msg)}</small>`:''}</div>`;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>{el.style.transition='.3s';el.style.opacity=0;el.style.transform='translateX(24px)';setTimeout(()=>el.remove(),320)},4200);
+}
+
+/* ---------- reference lists ---------- */
+const ROLES=['Administrator','Dashboard Access User','Supervisor','Technical Staff','Driver'];
+const USTATUS=['Available','Working','Assigned','On Leave','Inactive'];
+const VSTATUS=['Available','Assigned','In Service','Maintenance','Inactive'];
+const SRSTATUS=['New','Allocated','Work Started','Work Completed','Closed','Cancelled'];
+const PRIOS=['Low','Medium','High','Critical'];
+const STYPES=['AC Checking','Preventive Maintenance','Corrective Maintenance','Repair','Replacement','Cleaning','Water Service','Gas Charging','Electrical Work','Cooling Issue','Leakage Issue'];
+const EQUIP=['Ductable AC','Cassette AC','Split AC','FCU','AHU','Chiller','Cold Room','Freezer Unit'];
+const EMIRATES=['Dubai','Sharjah','Ajman','Abu Dhabi','Ras Al Khaimah'];
+const CLIENTS=['Nesto Hypermarket','Last Chance Wholesale Market LLC','Al Maya Supermarket','Gulf Cold Store LLC'];
+const AREAS=['Nad Al Hamar','Jabel Ali','Al Nahda-2','King Faisal','Mia Mall','Maleha','Ajman Industrial 1','Al Quoz'];
+
+const badgeFor=(s)=>({
+ 'Available':'b-cool','Working':'b-warm','Assigned':'b-violet','On Leave':'b-idle','Inactive':'b-idle',
+ 'In Service':'b-warm','Maintenance':'b-hot',
+ 'New':'b-idle','Allocated':'b-violet','Work Started':'b-warm','Work Completed':'b-done','Closed':'b-cool','Cancelled':'b-hot',
+ 'Low':'b-idle','Medium':'b-cool','High':'b-warm','Critical':'b-hot','AMC':'b-cool','Non-AMC':'b-violet'
+}[s]||'b-idle');
+const bdg=(s,sq)=>s?`<span class="b ${badgeFor(s)}${sq?' b-sq':''}"><i></i>${esc(s)}</span>`:'—';
+
+/* =====================================================================
+   SEED DATA — terminology and examples follow the July HVAC service report
+   ===================================================================== */
+function seed(){
+  const U=(id,name,empId,role,area,em,mob,base,supId,vehId,join)=>({
+    id,name,empId,role,destination:area,emirates:em,mobile:mob,
+    email:name.toLowerCase().replace(/[^a-z]+/g,'.')+'@coolchainfm.ae',
+    address:area+', '+em,joinDate:join,base,supId:supId||null,vehId:vehId||null
+  });
+  const users=[
+    U('U1','System Administrator','EMP-001','Administrator','Head Office','Dubai','+971 50 111 0001','Available',null,null,D(2021,3,1)),
+    U('U2','Ismail','EMP-014','Supervisor','Nad Al Hamar','Dubai','+971 50 222 4410','Available',null,'V1',D(2021,6,14)),
+    U('U3','Arif','EMP-018','Supervisor','Ajman Industrial 1','Ajman','+971 55 331 7702','Available',null,'V3',D(2022,1,9)),
+    U('U4','Rahul','EMP-021','Supervisor','Jabel Ali','Dubai','+971 52 448 1190','Available',null,'V2',D(2022,4,3)),
+    U('U5','Vinod Kumar','EMP-026','Supervisor','King Faisal','Sharjah','+971 56 770 3325','Available',null,'V4',D(2023,2,20)),
+    U('U6','Aravinthan','EMP-032','Technical Staff','Nad Al Hamar','Dubai','+971 55 902 1174','Available','U2','V1',D(2022,8,11)),
+    U('U7','Deepu','EMP-035','Technical Staff','Nad Al Hamar','Dubai','+971 50 613 8890','Available','U2','V1',D(2022,9,5)),
+    U('U8','Arun','EMP-039','Technical Staff','Jabel Ali','Dubai','+971 54 220 6641','Available','U4','V2',D(2023,1,16)),
+    U('U9','Vishnu','EMP-041','Technical Staff','Ajman Industrial 1','Ajman','+971 56 118 2237','Available','U3','V3',D(2023,3,27)),
+    U('U10','Sajeev','EMP-044','Technical Staff','King Faisal','Sharjah','+971 52 907 4416','Available','U5','V4',D(2023,7,2)),
+    U('U11','Rasheed','EMP-047','Technical Staff','Al Nahda-2','Dubai','+971 50 388 5520','On Leave','U4',null,D(2024,2,12)),
+    U('U12','Suthaharan','EMP-052','Driver','Nad Al Hamar','Dubai','+971 55 470 9931','Available','U2','V1',D(2021,11,8)),
+    U('U13','Anil Joseph','EMP-055','Driver','Jabel Ali','Dubai','+971 50 226 7714','Available','U4','V2',D(2022,5,30)),
+    U('U14','Mujeeb Rahman','EMP-058','Driver','Ajman Industrial 1','Ajman','+971 56 904 3382','Available','U3','V3',D(2023,6,18)),
+    U('U15','Faisal Ahmed','EMP-006','Dashboard Access User','Head Office','Dubai','+971 50 700 1123','Available',null,null,D(2021,9,1)),
+    U('U16','Priya Nair','EMP-009','Dashboard Access User','Head Office','Dubai','+971 55 640 2288','Available',null,null,D(2022,2,15)),
+    U('U17','Mohammed Salih','EMP-061','Driver','Al Quoz','Dubai','+971 52 330 7719','Inactive',null,null,D(2024,5,6))
+  ];
+  const V=(id,reg,type,make,model,year,fuel,cap,loc,em,drv,sup,base,ins,rg,fit,due,notes)=>({
+    id,reg,type,make,model,year,fuel,capacity:cap,location:loc,emirates:em,
+    driverId:drv,supId:sup,base,insuranceExpiry:ins,regExpiry:rg,fitnessExpiry:fit,serviceDue:due,notes:notes||''
+  });
+  const vehicles=[
+    V('V1','DXB-1234','Service Van','Toyota','Hiace',2022,'Diesel','3 crew + tools','Nad Al Hamar','Dubai','U12','U2','Available',D(2026,11,14),D(2027,2,2),D(2026,11,14),D(2026,9,20),'Gas charging kit and recovery unit on board.'),
+    V('V2','DXB-4567','Service Van','Nissan','Urvan',2021,'Petrol','3 crew + tools','Jabel Ali','Dubai','U13','U4','Available',D(2026,9,30),D(2026,12,18),D(2026,9,30),D(2026,8,26),'Ladder rack fitted.'),
+    V('V3','AJM-3456','Pickup','Toyota','Hilux',2023,'Diesel','2 crew + load bed','Ajman Industrial 1','Ajman','U14','U3','Available',D(2027,1,22),D(2027,1,22),D(2027,1,22),D(2026,10,11),''),
+    V('V4','SHJ-7890','Service Van','Toyota','Hiace',2020,'Diesel','3 crew + tools','King Faisal','Sharjah',null,'U5','Available',D(2026,8,29),D(2026,10,5),D(2026,8,29),D(2026,8,18),'Insurance renewal due shortly.'),
+    V('V5','DXB-2210','Pickup','Isuzu','D-Max',2022,'Diesel','2 crew + load bed','Al Quoz','Dubai',null,null,'Available',D(2027,3,3),D(2027,3,3),D(2027,3,3),D(2026,12,1),'Spare unit for cold room jobs.'),
+    V('V6','AJM-1180','Service Van','Nissan','Urvan',2019,'Petrol','3 crew + tools','Ajman Industrial 1','Ajman',null,null,'Maintenance',D(2026,10,10),D(2026,11,7),D(2026,10,10),D(2026,8,12),'Gearbox overhaul at workshop — off road until further notice.')
+  ];
+
+  let srSeq=5070;
+  const R=(o)=>{
+    const base={projectNo:'',items:[],techIds:[],driverId:null,vehId:null,supId:null,
+      timeIn:null,timeOut:null,hours:null,workPerformed:'',remarks:'',notes:'',material:'',
+      replacement:'No',followUp:'No',timeline:[]};
+    const r=Object.assign(base,o);
+    if(!r.timeline.length){
+      r.timeline=[{t:r.reportedDate,e:'Service request registered',by:'System Administrator'}];
+      if(['Allocated','Work Started','Work Completed','Closed'].includes(r.status)){
+        r.timeline.push({t:r.reportedDate+9e5,e:'Allocated to '+(users.find(u=>u.id===r.supId)||{}).name,by:'System Administrator'});
+        r.timeline.push({t:r.reportedDate+96e4,e:'Assignment notification sent to supervisor',by:'System'});
+      }
+      if(['Work Started','Work Completed','Closed'].includes(r.status)&&r.timeIn) r.timeline.push({t:r.timeIn,e:'Work started on site',by:(users.find(u=>u.id===r.supId)||{}).name});
+      if(['Work Completed','Closed'].includes(r.status)&&r.timeOut) r.timeline.push({t:r.timeOut,e:'Work completed',by:(users.find(u=>u.id===r.supId)||{}).name});
+      if(r.status==='Closed') r.timeline.push({t:r.timeOut+18e5,e:'Reviewed and closed',by:'System Administrator'});
+    }
+    return r;
+  };
+  const T=(h,m)=>{const d=new Date();d.setHours(h,m,0,0);return d.getTime()};
+
+  const requests=[
+    R({srNo:'5064',projectNo:'PRJ-2026-118',client:'Nesto Hypermarket',area:'Al Nahda-2',location:'Ground floor, customer service side',emirates:'Dubai',
+      serviceType:'Gas Charging',amc:'AMC',priority:'High',equipment:'Ductable AC',
+      description:'Ground floor G-14 ductable AC not cooling. AC checking carried out — gas charging required.',
+      items:[{floor:'Ground Floor G-14',equipment:'Ductable AC',work:'AC checking and gas charging',qty:1}],
+      reportedDate:T(8,40),expectedFix:daysAgo(-1),scheduledDate:T(10,0),status:'Work Started',
+      supId:'U4',techIds:['U8'],driverId:'U13',vehId:'V2',timeIn:now()-46*6e4}),
+    R({srNo:'5070',projectNo:'',client:'Gulf Cold Store LLC',area:'Al Quoz',location:'Cold room 2, loading bay',emirates:'Dubai',
+      serviceType:'Cooling Issue',amc:'Non-AMC',priority:'Critical',equipment:'Cold Room',
+      description:'Cold room 2 holding +4°C against a −18°C set point. Suspected condenser fan fault, cooling problem to be cleared.',
+      items:[{floor:'Cold room 2',equipment:'Cold Room',work:'Condenser fan checking, cooling problem clearing',qty:1},
+             {floor:'Cold room 2',equipment:'Cold Room',work:'Door gasket replacement',qty:2}],
+      reportedDate:T(7,55),expectedFix:daysAgo(0),scheduledDate:T(9,0),status:'Work Started',
+      supId:'U5',techIds:['U10'],driverId:null,vehId:'V4',timeIn:now()-134*6e4}),
+    R({srNo:'5057',projectNo:'PRJ-2026-114',client:'Nesto Hypermarket',area:'Jabel Ali',location:'Ground floor and 1st floor',emirates:'Dubai',
+      serviceType:'Corrective Maintenance',amc:'AMC',priority:'Medium',equipment:'Ductable AC',
+      description:'Multiple AC complaints reported by store manager across ground and first floor.',
+      items:[{floor:'Ground Floor G-19',equipment:'Ductable AC',work:'Indoor fan motor removed, blower motor cleaning, water service',qty:1},
+             {floor:'Ground Floor G-9',equipment:'Ductable AC',work:'Thermostat replacement',qty:1},
+             {floor:'Ground Floor G-6',equipment:'Ductable AC',work:'Thermostat and indoor-to-outdoor wire replacement',qty:1},
+             {floor:'1st Floor',equipment:'Cassette AC',work:'Water leakage rectification',qty:1}],
+      reportedDate:T(8,10),expectedFix:daysAgo(-2),scheduledDate:T(13,0),status:'New'}),
+    R({srNo:'5008',projectNo:'PRJ-2026-109',client:'Last Chance Wholesale Market LLC',area:'Ajman Industrial 1',location:'Ground floor, hot food section',emirates:'Ajman',
+      serviceType:'Preventive Maintenance',amc:'AMC',priority:'Medium',equipment:'FCU',
+      description:'Scheduled AMC visit — chiller water line and FCU servicing for ground floor units.',
+      items:[{floor:'Ground Floor',equipment:'FCU',work:'Chiller water line strainer cleaning',qty:2},
+             {floor:'Hot food section',equipment:'FCU',work:'Water service',qty:1},
+             {floor:'Ground Floor',equipment:'FCU',work:'Actuator valve replacement',qty:1}],
+      reportedDate:T(8,25),expectedFix:daysAgo(-1),scheduledDate:T(14,30),status:'Allocated',
+      supId:'U3',techIds:['U9'],driverId:'U14',vehId:'V3'}),
+    R({srNo:'5069',projectNo:'',client:'Al Maya Supermarket',area:'Mia Mall',location:'1st floor, staff area',emirates:'Sharjah',
+      serviceType:'Leakage Issue',amc:'AMC',priority:'High',equipment:'Cassette AC',
+      description:'Water dripping from 1st floor staff area cassette AC onto false ceiling. Drain line to be checked.',
+      items:[{floor:'1st Floor',equipment:'Cassette AC',work:'Water leakage — drain line flushing and water service',qty:1}],
+      reportedDate:T(9,5),expectedFix:daysAgo(-1),scheduledDate:T(16,0),status:'New'}),
+    R({srNo:'5068',projectNo:'',client:'Nesto Hypermarket',area:'Al Nahda-2',location:'LV room',emirates:'Dubai',
+      serviceType:'AC Checking',amc:'AMC',priority:'Medium',equipment:'Split AC',
+      description:'LV room split AC tripping intermittently. AC checking requested before panel inspection.',
+      items:[{floor:'LV Room',equipment:'Split AC',work:'AC checking, electrical connection tightening',qty:1}],
+      reportedDate:T(9,40),expectedFix:daysAgo(-2),scheduledDate:daysAgo(-1),status:'New'}),
+    R({srNo:'5067',projectNo:'PRJ-2026-121',client:'Gulf Cold Store LLC',area:'Ajman Industrial 1',location:'Roof plant area',emirates:'Ajman',
+      serviceType:'Replacement',amc:'Non-AMC',priority:'Low',equipment:'AHU',
+      description:'AHU filter set clogged. Quotation approved for filter replacement and water service.',
+      items:[{floor:'Roof plant',equipment:'AHU',work:'Filter set replacement and filter water service',qty:6}],
+      reportedDate:T(10,15),expectedFix:daysAgo(-4),scheduledDate:daysAgo(-3),status:'New'}),
+    R({srNo:'5062',projectNo:'PRJ-2026-117',client:'Nesto Hypermarket',area:'Jabel Ali',location:'Ground floor G-13',emirates:'Dubai',
+      serviceType:'Replacement',amc:'Non-AMC',priority:'High',equipment:'Ductable AC',
+      description:'Ground floor G-13 ductable AC indoor fan motor and bearing replacement. Unit noisy and vibrating.',
+      items:[{floor:'Ground Floor G-13',equipment:'Ductable AC',work:'Indoor fan motor replacement',qty:1},
+             {floor:'Ground Floor G-13',equipment:'Ductable AC',work:'Bearing replacement',qty:2}],
+      reportedDate:T(7,30),expectedFix:daysAgo(0),scheduledDate:T(8,0),status:'Work Completed',
+      supId:'U4',techIds:['U8'],driverId:'U13',vehId:'V2',timeIn:T(8,10),timeOut:T(11,25),hours:3.25,
+      workPerformed:'Indoor fan motor and both bearings replaced. Unit test run for 30 minutes.',
+      remarks:'Vibration cleared, noise level normal. Store manager satisfied.',material:'Fan motor 1 no, bearing 6203 x 2',replacement:'Yes',followUp:'No'}),
+    R({srNo:'5007',projectNo:'PRJ-2026-108',client:'Last Chance Wholesale Market LLC',area:'Ajman Industrial 1',location:'Ground floor',emirates:'Ajman',
+      serviceType:'Water Service',amc:'AMC',priority:'Medium',equipment:'FCU',
+      description:'Ground floor FCU water leakage reported. Water service required.',
+      items:[{floor:'Ground Floor',equipment:'FCU',work:'Water leakage rectification and water service',qty:1}],
+      reportedDate:T(7,20),expectedFix:daysAgo(0),scheduledDate:T(8,30),status:'Work Completed',
+      supId:'U3',techIds:['U9'],driverId:'U14',vehId:'V3',timeIn:T(8,45),timeOut:T(10,50),hours:2.08,
+      workPerformed:'FCU drain pan cleaned, drain line flushed, coil water service done.',
+      remarks:'Leakage stopped. Advised client on quarterly drain cleaning.',material:'Coil cleaning chemical 2 L',replacement:'No',followUp:'No'})
+  ];
+
+  /* --- closed history spanning the last month --- */
+  const hist=[
+    ['5061','Nesto Hypermarket','Nad Al Hamar','Dubai','Cleaning','AMC','Medium','Ductable AC','Ground floor G-4 ductable AC blower motor cleaning and water service.','U2',['U6','U7'],'U12','V1',1,8,30,11,45],
+    ['5060','Nesto Hypermarket','King Faisal','Sharjah','Gas Charging','AMC','High','Split AC','Backstore split AC low cooling — gas topped up after leak test.','U5',['U10'],null,'V4',2,9,0,12,15],
+    ['5059','Last Chance Wholesale Market LLC','Ajman Industrial 1','Ajman','Repair','AMC','High','FCU','Hot food section FCU actuator valve defective — replaced.','U3',['U9'],'U14','V3',3,8,15,10,40],
+    ['5058','Al Maya Supermarket','Maleha','Sharjah','Preventive Maintenance','AMC','Low','Cassette AC','Quarterly AMC visit — 6 cassette units filter water service.','U5',['U10'],null,'V4',4,8,45,13,30],
+    ['5056','Nesto Hypermarket','Jabel Ali','Dubai','Electrical Work','Non-AMC','Medium','Ductable AC','G-6 indoor to outdoor wire replacement after rodent damage.','U4',['U8'],'U13','V2',6,10,0,13,10],
+    ['5055','Gulf Cold Store LLC','Al Quoz','Dubai','Corrective Maintenance','Non-AMC','Critical','Freezer Unit','Freezer unit 3 not holding temperature — thermostat replaced.','U2',['U6'],'U12','V1',8,7,30,12,50],
+    ['5054','Nesto Hypermarket','Mia Mall','Sharjah','Water Service','AMC','Medium','FCU','1st floor FCU chiller water line strainer cleaning.','U5',['U10'],null,'V4',11,9,15,11,55],
+    ['5053','Last Chance Wholesale Market LLC','Ajman Industrial 1','Ajman','Cleaning','AMC','Low','AHU','AHU filter water service and coil cleaning.','U3',['U9'],'U14','V3',14,8,20,12,5],
+    ['5052','Nesto Hypermarket','Al Nahda-2','Dubai','Repair','AMC','High','Cassette AC','Customer service area cassette AC water leakage — drain pump replaced.','U4',['U8','U6'],'U13','V2',18,9,45,14,20],
+    ['5051','Al Maya Supermarket','Mia Mall','Sharjah','Replacement','Non-AMC','Medium','Ductable AC','Ductable AC fan bearing replacement after abnormal noise.','U2',['U7'],'U12','V1',22,8,0,11,30],
+    ['5050','Gulf Cold Store LLC','Al Quoz','Dubai','Preventive Maintenance','AMC','Low','Chiller','Monthly chiller preventive maintenance and log review.','U5',['U10'],null,'V4',26,8,30,15,0]
+  ];
+  hist.forEach(h=>{
+    const day=h[13];
+    const mk=(hh,mm)=>{const x=new Date();x.setDate(x.getDate()-day);x.setHours(hh,mm,0,0);return x.getTime()};
+    const tin=mk(h[14],h[15]),tout=mk(h[16],h[17]);
+    requests.push(R({srNo:h[0],projectNo:'',client:h[1],area:h[2],location:h[2],emirates:h[3],serviceType:h[4],amc:h[5],
+      priority:h[6],equipment:h[7],description:h[8],
+      items:[{floor:h[2],equipment:h[7],work:h[4],qty:1}],
+      reportedDate:tin-72e5,expectedFix:tout,scheduledDate:tin,status:'Closed',
+      supId:h[9],techIds:h[10],driverId:h[11],vehId:h[12],timeIn:tin,timeOut:tout,hours:hoursOf(tin,tout),
+      workPerformed:h[8],remarks:'Work completed and signed off by client representative.',replacement:h[4]==='Replacement'?'Yes':'No',followUp:'No'}));
+  });
+
+  const dashAccess=[
+    {id:'DA1',userId:'U1',scope:'Full dashboard',enabled:true,lastLogin:now()-25*6e4},
+    {id:'DA2',userId:'U15',scope:'Operations + reports',enabled:true,lastLogin:now()-3*36e5},
+    {id:'DA3',userId:'U16',scope:'Reports only',enabled:false,lastLogin:now()-4*864e5},
+    {id:'DA4',userId:'U2',scope:'Own team only',enabled:true,lastLogin:now()-70*6e4}
+  ];
+
+  return {users,vehicles,requests,dashAccess,notifications:[],srSeq:5071};
+}
+
+/* ---------- state ---------- */
+let S;
+function load(){
+  const raw=store.get(KEY);
+  if(raw){try{S=JSON.parse(raw);if(S&&S.requests&&S.requests.length)return}catch(e){}}
+  S=seed();
+  seedNotifs();
+  save();
+}
+function save(){try{store.set(KEY,JSON.stringify(S))}catch(e){}}
+function resetAll(){store.del(KEY);store.del(KEY+'.session');S=seed();seedNotifs();save();closeModal();render();toast('Demo data reset','All users, vehicles and service requests restored to the sample set.','ok')}
+
+function seedNotifs(){
+  S.notifications=[];
+  const started=S.requests.filter(r=>r.status==='Work Started');
+  const done=S.requests.filter(r=>r.status==='Work Completed');
+  notify('supervisor','New service request assigned',`SR #5064 · Nesto Hypermarket\nAl Nahda-2, Dubai\nDuctable AC — Gas Charging\nPriority: High`,'U4',now()-58*6e4,'5064');
+  started.forEach(r=>notify('admin','Work started',`SR #${r.srNo} · ${r.client} — ${sup(r)?sup(r).name:'—'} started on site.`,null,r.timeIn,r.srNo));
+  done.forEach(r=>notify('admin','Work completed',`SR #${r.srNo} · ${r.client} — ${r.hours} h recorded.`,null,r.timeOut,r.srNo));
+  notify('admin','Vehicle unavailable','AJM-1180 moved to Maintenance — gearbox overhaul at workshop.',null,now()-6*36e5);
+  notify('admin','User unavailable','Rasheed (EMP-047) is On Leave until further notice.',null,now()-9*36e5);
+  const overdue=S.requests.find(r=>r.srNo==='5067');
+  if(overdue) notify('admin','Service overdue',`SR #5067 · Gulf Cold Store LLC — expected fix date has passed and the request is still New.`,null,now()-2*36e5,'5067');
+  notify('supervisor','Work reminder','SR #5008 · Last Chance Wholesale Market LLC, Ajman is scheduled for 02:30 PM today.','U3',now()-40*6e4,'5008');
+  notify('supervisor','New service request assigned',`SR #5008 · Last Chance Wholesale Market LLC\nAjman Industrial 1, Ajman\nFCU — Preventive Maintenance\nPriority: Medium`,'U3',now()-52*6e4,'5008');
+}
+function notify(audience,title,body,userId,t,srNo){
+  S.notifications.unshift({id:uid('N'),audience,title,body,userId:userId||null,t:t||now(),read:false,srNo:srNo||null});
+}
+
+/* =====================================================================
+   DERIVED STATE — availability always follows live service requests
+   ===================================================================== */
+const user=id=>S.users.find(u=>u.id===id);
+const veh=id=>S.vehicles.find(v=>v.id===id);
+const sr=no=>S.requests.find(r=>r.srNo===no);
+const sup=r=>r&&r.supId?user(r.supId):null;
+const teamIds=r=>[r.supId,...(r.techIds||[]),r.driverId].filter(Boolean);
+const teamNames=r=>teamIds(r).map(i=>(user(i)||{}).name).filter(Boolean);
+const ACTIVE=['Allocated','Work Started'];
+
+function uStatus(id){
+  const u=user(id);if(!u)return '—';
+  if(u.base==='Inactive'||u.base==='On Leave')return u.base;
+  const mine=S.requests.filter(r=>ACTIVE.includes(r.status)&&teamIds(r).includes(id));
+  if(mine.some(r=>r.status==='Work Started')) return id===mine.find(r=>r.status==='Work Started').driverId?'Assigned':'Working';
+  if(mine.length) return 'Assigned';
+  return 'Available';
+}
+function vStatus(id){
+  const v=veh(id);if(!v)return '—';
+  if(v.base==='Maintenance'||v.base==='Inactive')return v.base;
+  const mine=S.requests.filter(r=>ACTIVE.includes(r.status)&&r.vehId===id);
+  if(mine.some(r=>r.status==='Work Started'))return 'In Service';
+  if(mine.length)return 'Assigned';
+  return 'Available';
+}
+const curSR=id=>S.requests.find(r=>ACTIVE.includes(r.status)&&teamIds(r).includes(id));
+const curSRVeh=id=>S.requests.find(r=>ACTIVE.includes(r.status)&&r.vehId===id);
+const fieldUsers=()=>S.users.filter(u=>['Supervisor','Technical Staff','Driver'].includes(u.role));
+function historyOf(id){
+  return S.requests.filter(r=>teamIds(r).includes(id)&&['Work Completed','Closed','Work Started'].includes(r.status))
+    .sort((a,b)=>(b.timeIn||0)-(a.timeIn||0));
+}
+function nextSR(){const n=S.srSeq++;save();return String(n)}
+
+/* =====================================================================
+   NAVIGATION
+   ===================================================================== */
+const PAGES=[
+  {g:'Operations'},
+  {k:'dashboard',t:'Dashboard',s:'Overview',i:'dash'},
+  {k:'requests',t:'Service Requests',s:'Complaints & service work',i:'clip',count:()=>S.requests.filter(r=>['New','Allocated','Work Started'].includes(r.status)).length},
+  {k:'monitoring',t:'Work Monitoring',s:'Who is free, who is on a job',i:'pulse'},
+  {k:'vehmon',t:'Vehicle Monitoring',s:'Fleet deployment',i:'van'},
+  {g:'Master data'},
+  {k:'users',t:'User Management',s:'Employees, roles and teams',i:'users'},
+  {k:'vehicles',t:'Vehicle Management',s:'Service fleet register',i:'van'},
+  {k:'access',t:'Dashboard Access',s:'Who can see the dashboard',i:'shield'},
+  {g:'Insight'},
+  {k:'reports',t:'Reports',s:'Service, employee and fleet reporting',i:'chart'},
+  {k:'notifications',t:'Notifications',s:'Operations alerts',i:'bell',count:()=>unread('admin'),hot:true}
+];
+let page='dashboard';
+const unread=a=>S.notifications.filter(n=>n.audience===a&&!n.read).length;
+
+function buildNav(){
+  $('#nav').innerHTML=PAGES.map(p=>{
+    if(p.g)return `<div class="nav-lbl">${p.g}</div>`;
+    const c=p.count?p.count():0;
+    return `<a href="#" onclick="go('${p.k}');return false" class="${page===p.k?'on':''}">${icon(p.i,16)}<span>${p.t}</span>${c?`<span class="pill${p.hot?' hot':''}">${c}</span>`:''}</a>`;
+  }).join('');
+  const u=unread('admin');
+  $('#bellDot').style.display=u?'grid':'none';$('#bellDot').textContent=u;
+}
+function go(k){page=k;const m=$('#main');if(m&&m.scrollTo)m.scrollTo({top:0});render()}
+function render(){
+  const p=PAGES.find(x=>x.k===page)||PAGES[1];
+  $('#pageTitle').textContent=p.t;$('#crumb').textContent=p.s;
+  buildNav();
+  const V={dashboard:vDash,requests:vRequests,monitoring:vMon,vehmon:vVehMon,users:vUsers,vehicles:vVehicles,access:vAccess,reports:vReports,notifications:vNotifs};
+  $('#view').innerHTML=(V[page]||vDash)();
+  if(afterRender.length){afterRender.forEach(f=>f());afterRender=[]}
+  save();
+}
+let afterRender=[];
+const later=f=>afterRender.push(f);
+
+/* =====================================================================
+   DASHBOARD
+   ===================================================================== */
+function counts(){
+  const R=S.requests,t=R.filter(r=>isToday(r.reportedDate));
+  const wk=R.filter(r=>r.reportedDate>=daysAgo(7)),mo=R.filter(r=>r.reportedDate>=daysAgo(30));
+  const fu=fieldUsers();
+  return {
+    today:t.length,
+    tDone:R.filter(r=>isToday(r.timeOut)).length,
+    tPend:t.filter(r=>r.status==='New').length,
+    tAlloc:R.filter(r=>r.status==='Allocated').length,
+    tStart:R.filter(r=>r.status==='Work Started').length,
+    wk:wk.length,mo:mo.length,
+    uActive:S.users.filter(u=>u.base!=='Inactive').length,
+    uFree:fu.filter(u=>uStatus(u.id)==='Available').length,
+    uWork:fu.filter(u=>['Working','Assigned'].includes(uStatus(u.id))).length,
+    vAll:S.vehicles.length,
+    vFree:S.vehicles.filter(v=>vStatus(v.id)==='Available').length,
+    vBusy:S.vehicles.filter(v=>['Assigned','In Service'].includes(vStatus(v.id))).length,
+    vMaint:S.vehicles.filter(v=>vStatus(v.id)==='Maintenance').length,
+    open:R.filter(r=>['New','Allocated','Work Started'].includes(r.status)).length,
+    closed:R.filter(r=>['Work Completed','Closed'].includes(r.status)).length,
+    amc:R.filter(r=>r.amc==='AMC').length,
+    nonamc:R.filter(r=>r.amc==='Non-AMC').length
+  };
+}
+function statCard(k,v,m,c){return `<div class="stat ${c||''}"><div class="k">${k}</div><div class="v">${v}</div><div class="m">${m||''}</div></div>`}
+
+function vDash(){
+  const c=counts(),fu=fieldUsers();
+  const total=fu.length||1;
+  const free=c.uFree,work=fu.filter(u=>uStatus(u.id)==='Working').length,asg=fu.filter(u=>uStatus(u.id)==='Assigned').length,
+        leave=fu.filter(u=>uStatus(u.id)==='On Leave').length,inact=fu.filter(u=>uStatus(u.id)==='Inactive').length;
+  const pc=n=>(n/total*100).toFixed(0);
+  const live=S.requests.filter(r=>ACTIVE.includes(r.status)).sort((a,b)=>SRSTATUS.indexOf(b.status)-SRSTATUS.indexOf(a.status));
+  later(drawCharts);later(startTickers);
+  return `
+  <div class="gauge">
+    <div class="gauge-row">
+      <div class="gauge-num"><small>Crew deployed</small>${work+asg}<span style="font-size:17px;color:rgba(255,255,255,.45)">/${total}</span></div>
+      <div class="gauge-num"><small>Vans out</small>${c.vBusy}<span style="font-size:17px;color:rgba(255,255,255,.45)">/${c.vAll}</span></div>
+      <div class="gauge-num"><small>Jobs running</small>${c.tStart}</div>
+      <div class="gauge-num"><small>Awaiting allocation</small>${c.tPend}</div>
+      <div style="margin-left:auto;text-align:right">
+        <div class="eyebrow" style="color:rgba(255,255,255,.45)">Load right now</div>
+        <div class="gauge-num" style="font-size:30px">${pc(work+asg)}%</div>
+      </div>
+    </div>
+    <div class="bar">
+      <i style="width:${pc(work)}%;background:#D9822B"></i>
+      <i style="width:${pc(asg)}%;background:#5B54B8"></i>
+      <i style="width:${pc(free)}%;background:#17B7D4"></i>
+      <i style="width:${pc(leave+inact)}%;background:#5A6A7D"></i>
+    </div>
+    <div class="bar-key">
+      <span><b style="background:#D9822B"></b>Working ${work}</span>
+      <span><b style="background:#5B54B8"></b>Assigned ${asg}</span>
+      <span><b style="background:#17B7D4"></b>Available ${free}</span>
+      <span><b style="background:#5A6A7D"></b>On leave / inactive ${leave+inact}</span>
+    </div>
+  </div>
+
+  <div class="sec-h"><h2>Today</h2><span class="rule"></span></div>
+  <div class="stat-grid">
+    ${statCard("Today's service requests",c.today,'Registered since midnight','c')}
+    ${statCard("Today's completed jobs",c.tDone,'Signed off on site','d')}
+    ${statCard("Today's pending jobs",c.tPend,'Not yet allocated','h')}
+    ${statCard("Today's allocated jobs",c.tAlloc,'Crew and van assigned','v')}
+    ${statCard("Today's work started",c.tStart,'Crew on site now','w')}
+    ${statCard('Last 7 days',c.wk,'Service requests')}
+    ${statCard('Last month',c.mo,'Service requests')}
+    ${statCard('Open complaints',c.open,'New, allocated or running','h')}
+    ${statCard('Completed complaints',c.closed,'Completed or closed','d')}
+  </div>
+
+  <div class="sec-h"><h2>Workforce &amp; fleet</h2><span class="rule"></span></div>
+  <div class="stat-grid">
+    ${statCard('Total active users',c.uActive,'All roles')}
+    ${statCard('Available users',c.uFree,'Ready to dispatch','c')}
+    ${statCard('Users currently working',c.uWork,'On an active request','w')}
+    ${statCard('Total vehicles',c.vAll,'Service fleet')}
+    ${statCard('Available vehicles',c.vFree,'Ready to dispatch','c')}
+    ${statCard('Vehicles assigned',c.vBusy,'Allocated or in service','w')}
+    ${statCard('Under maintenance',c.vMaint,'Off road','h')}
+    ${statCard('AMC share',(c.amc/(c.amc+c.nonamc)*100).toFixed(0)+'%',`${c.amc} AMC · ${c.nonamc} Non-AMC`,'v')}
+  </div>
+
+  <div class="sec-h"><h2>Current service operations</h2><span class="rule"></span>
+    <button class="btn btn-sm" onclick="go('requests')">All requests</button></div>
+  <div class="card"><div class="tbl-wrap"><table>
+    <thead><tr><th>SR No</th><th>Client</th><th>Location</th><th>Issue</th><th>Supervisor</th><th>Crew</th><th>Vehicle</th><th>Started</th><th>Elapsed</th><th>Status</th><th></th></tr></thead>
+    <tbody>${live.length?live.map(r=>`<tr>
+      <td><span class="sr-no">#${r.srNo}</span></td>
+      <td><b>${esc(r.client)}</b><div class="eyebrow">${esc(r.amc)}</div></td>
+      <td>${esc(r.area)}<div style="color:var(--txt-3);font-size:11.5px">${esc(r.emirates)}</div></td>
+      <td>${esc(r.serviceType)}<div style="color:var(--txt-3);font-size:11.5px">${esc(r.equipment)}</div></td>
+      <td>${sup(r)?`<div class="who">${av(sup(r).name,26)}<b>${esc(sup(r).name)}</b></div>`:'<span style="color:var(--txt-3)">Unassigned</span>'}</td>
+      <td>${(r.techIds||[]).map(i=>esc((user(i)||{}).name)).join(', ')||'—'}</td>
+      <td class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</td>
+      <td class="mono">${r.timeIn?fmtTime(r.timeIn):'—'}</td>
+      <td>${r.timeIn?`<span class="live" data-tick="${r.timeIn}">${dur(now()-r.timeIn)}</span>`:'—'}</td>
+      <td>${bdg(r.status)}</td>
+      <td><button class="btn btn-sm" onclick="viewSR('${r.srNo}')">Open</button></td>
+    </tr>`).join(''):`<tr><td colspan="11" class="t-empty"><b>Nothing running</b>Allocate a service request to see live operations here.</td></tr>`}</tbody>
+  </table></div></div>
+
+  <div class="sec-h"><h2>Charts</h2><span class="rule"></span></div>
+  <div class="chart-grid">
+    <div class="card"><div class="card-h"><h3>Service request trend</h3><span class="eyebrow" style="margin-left:auto">Volume by window</span></div>
+      <div class="card-b"><div class="chart-box"><canvas id="cTrend"></canvas></div></div></div>
+    <div class="card"><div class="card-h"><h3>Service status</h3></div>
+      <div class="card-b"><div class="chart-box"><canvas id="cStatus"></canvas></div></div></div>
+  </div>
+  <div class="chart-grid-3" style="margin-top:14px">
+    <div class="card"><div class="card-h"><h3>AMC vs Non-AMC</h3></div><div class="card-b"><div class="chart-box"><canvas id="cAmc"></canvas></div></div></div>
+    <div class="card"><div class="card-h"><h3>Priority distribution</h3></div><div class="card-b"><div class="chart-box"><canvas id="cPrio"></canvas></div></div></div>
+    <div class="card"><div class="card-h"><h3>Employee status</h3></div><div class="card-b"><div class="chart-box"><canvas id="cEmp"></canvas></div></div></div>
+  </div>
+  <div class="chart-grid" style="margin-top:14px">
+    <div class="card"><div class="card-h"><h3>Vehicle status</h3></div><div class="card-b"><div class="chart-box"><canvas id="cVeh"></canvas></div></div></div>
+    <div class="card"><div class="card-h"><h3>Service type mix</h3><span class="eyebrow" style="margin-left:auto">Top activities</span></div><div class="card-b"><div class="chart-box"><canvas id="cType"></canvas></div></div></div>
+  </div>`;
+}
+
+let charts=[];
+function drawCharts(){
+  if(!window.Chart)return;
+  charts.forEach(c=>{try{c.destroy()}catch(e){}});charts=[];
+  Chart.defaults.font.family="Inter, sans-serif";Chart.defaults.font.size=11;Chart.defaults.color='#4B5D73';
+  const C={cool:'#0E8FA8',warm:'#D9822B',hot:'#C8453C',done:'#1E8E5A',idle:'#8393A6',violet:'#5B54B8',ice:'#17B7D4'};
+  const mk=(id,cfg)=>{const el=document.getElementById(id);if(el)charts.push(new Chart(el,cfg))};
+  const R=S.requests;
+  const y=(()=>{const d=new Date();d.setDate(d.getDate()-1);return R.filter(r=>new Date(r.reportedDate).toDateString()===d.toDateString()).length})();
+  const noLeg={plugins:{legend:{display:false}}};
+  mk('cTrend',{type:'bar',data:{labels:['Today','Yesterday','Last 7 days','Last 30 days'],
+    datasets:[{data:[R.filter(r=>isToday(r.reportedDate)).length,y,R.filter(r=>r.reportedDate>=daysAgo(7)).length,R.filter(r=>r.reportedDate>=daysAgo(30)).length],
+      backgroundColor:[C.ice,C.cool,C.violet,'#2E4A63'],borderRadius:6,maxBarThickness:56}]},
+    options:{responsive:true,maintainAspectRatio:false,...noLeg,scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}});
+  const stCount=['New','Allocated','Work Started','Work Completed','Closed'].map(s=>R.filter(r=>r.status===s).length);
+  mk('cStatus',{type:'doughnut',data:{labels:['New','Allocated','Work Started','Work Completed','Closed'],
+    datasets:[{data:stCount,backgroundColor:[C.idle,C.violet,C.warm,C.done,C.cool],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:'rectRounded'}}}}});
+  mk('cAmc',{type:'doughnut',data:{labels:['AMC','Non-AMC'],datasets:[{data:[R.filter(r=>r.amc==='AMC').length,R.filter(r=>r.amc==='Non-AMC').length],
+    backgroundColor:[C.cool,C.violet],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}}}});
+  mk('cPrio',{type:'bar',data:{labels:PRIOS.slice().reverse(),datasets:[{data:PRIOS.slice().reverse().map(p=>R.filter(r=>r.priority===p).length),
+    backgroundColor:[C.hot,C.warm,C.cool,C.idle],borderRadius:6,maxBarThickness:34}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,...noLeg,scales:{x:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},y:{grid:{display:false}}}}});
+  const fu=fieldUsers();
+  mk('cEmp',{type:'doughnut',data:{labels:USTATUS,datasets:[{data:USTATUS.map(s=>fu.filter(u=>uStatus(u.id)===s).length),
+    backgroundColor:[C.cool,C.warm,C.violet,C.idle,'#C3CCD8'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded',font:{size:10}}}}}});
+  mk('cVeh',{type:'bar',data:{labels:VSTATUS,datasets:[{data:VSTATUS.map(s=>S.vehicles.filter(v=>vStatus(v.id)===s).length),
+    backgroundColor:[C.cool,C.violet,C.warm,C.hot,C.idle],borderRadius:6,maxBarThickness:48}]},
+    options:{responsive:true,maintainAspectRatio:false,...noLeg,scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}});
+  const tc={};R.forEach(r=>tc[r.serviceType]=(tc[r.serviceType]||0)+1);
+  const top=Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  mk('cType',{type:'bar',data:{labels:top.map(t=>t[0]),datasets:[{data:top.map(t=>t[1]),backgroundColor:C.ice,borderRadius:5,maxBarThickness:22}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,...noLeg,scales:{x:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},y:{grid:{display:false}}}}});
+}
+let tickTimer=null;
+function startTickers(){
+  if(tickTimer)clearInterval(tickTimer);
+  const run=()=>document.querySelectorAll('[data-tick]').forEach(el=>{el.textContent=dur(now()-Number(el.dataset.tick))});
+  run();tickTimer=setInterval(run,1000);
+}
+
+/* =====================================================================
+   FILTER PLUMBING
+   ===================================================================== */
+const F={sr:{q:'',status:'',client:'',area:'',em:'',amc:'',prio:'',type:'',sup:'',veh:'',from:'',to:''},
+         us:{q:'',role:'',status:'',em:''},
+         vh:{q:'',status:'',type:'',loc:''}};
+function setF(g,k,v){F[g][k]=v;render()}
+function clearF(g){Object.keys(F[g]).forEach(k=>F[g][k]='');render()}
+const opts=(list,sel,ph)=>`<option value="">${ph}</option>`+list.map(o=>{
+  const v=typeof o==='string'?o:o.v,l=typeof o==='string'?o:o.l;
+  return `<option value="${esc(v)}"${sel===v?' selected':''}>${esc(l)}</option>`}).join('');
+
+function filterSR(){
+  const f=F.sr,q=f.q.toLowerCase();
+  return S.requests.filter(r=>{
+    if(f.status&&r.status!==f.status)return false;
+    if(f.client&&r.client!==f.client)return false;
+    if(f.area&&r.area!==f.area)return false;
+    if(f.em&&r.emirates!==f.em)return false;
+    if(f.amc&&r.amc!==f.amc)return false;
+    if(f.prio&&r.priority!==f.prio)return false;
+    if(f.type&&r.serviceType!==f.type)return false;
+    if(f.sup&&r.supId!==f.sup)return false;
+    if(f.veh&&r.vehId!==f.veh)return false;
+    if(f.from&&r.reportedDate<new Date(f.from).setHours(0,0,0,0))return false;
+    if(f.to&&r.reportedDate>new Date(f.to).setHours(23,59,59,999))return false;
+    if(q){
+      const hay=[r.srNo,r.projectNo,r.client,r.area,r.location,r.emirates,r.serviceType,r.equipment,r.description,r.remarks,
+        ...teamNames(r),r.vehId?veh(r.vehId).reg:''].join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  }).sort((a,b)=>b.reportedDate-a.reportedDate);
+}
+
+/* =====================================================================
+   SERVICE REQUESTS
+   ===================================================================== */
+function vRequests(){
+  const list=filterSR(),f=F.sr;
+  const n=s=>S.requests.filter(r=>r.status===s).length;
+  later(startTickers);
+  return `
+  <div class="card">
+    <div class="bar-tools">
+      <div class="search">${icon('search',15)}<input class="inp" placeholder="Search SR no, client, location, crew, van…" value="${esc(f.q)}" oninput="F.sr.q=this.value;renderSRTable()"></div>
+      <select class="inp" onchange="setF('sr','status',this.value)">${opts(SRSTATUS,f.status,'All statuses')}</select>
+      <select class="inp" onchange="setF('sr','client',this.value)">${opts(CLIENTS,f.client,'All clients')}</select>
+      <select class="inp" onchange="setF('sr','area',this.value)">${opts(AREAS,f.area,'All areas')}</select>
+      <select class="inp" onchange="setF('sr','em',this.value)">${opts(EMIRATES,f.em,'All emirates')}</select>
+      <select class="inp" onchange="setF('sr','amc',this.value)">${opts(['AMC','Non-AMC'],f.amc,'AMC / Non-AMC')}</select>
+      <select class="inp" onchange="setF('sr','prio',this.value)">${opts(PRIOS,f.prio,'All priorities')}</select>
+      <select class="inp" onchange="setF('sr','type',this.value)">${opts(STYPES,f.type,'All service types')}</select>
+      <select class="inp" onchange="setF('sr','sup',this.value)">${opts(S.users.filter(u=>u.role==='Supervisor').map(u=>({v:u.id,l:u.name})),f.sup,'All supervisors')}</select>
+      <select class="inp" onchange="setF('sr','veh',this.value)">${opts(S.vehicles.map(v=>({v:v.id,l:v.reg})),f.veh,'All vehicles')}</select>
+      <input class="inp" type="date" value="${f.from}" title="From date" onchange="setF('sr','from',this.value)">
+      <input class="inp" type="date" value="${f.to}" title="To date" onchange="setF('sr','to',this.value)">
+      <button class="btn btn-sm" onclick="clearF('sr')">Clear</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openSR()">${icon('plus',14)} Add service request</button>
+    </div>
+    <div class="bar-tools" style="border-bottom:1px solid var(--line)">
+      <div class="chips">
+        <button class="chip ${!f.status?'on':''}" onclick="setF('sr','status','')">All<span class="n">${S.requests.length}</span></button>
+        ${SRSTATUS.map(s=>`<button class="chip ${f.status===s?'on':''}" onclick="setF('sr','status','${s}')">${s}<span class="n">${n(s)}</span></button>`).join('')}
+      </div>
+      <span class="eyebrow" style="margin-left:auto">${list.length} shown</span>
+    </div>
+    <div id="srTable">${srTable(list)}</div>
+  </div>`;
+}
+function renderSRTable(){$('#srTable').innerHTML=srTable(filterSR());startTickers()}
+function srTable(list){
+  if(!list.length)return `<div class="t-empty"><b>No service requests match</b>Adjust the filters, or register a new request.</div>`;
+  return `<div class="tbl-wrap"><table>
+  <thead><tr><th>SR No</th><th>Project</th><th>Date</th><th>Client</th><th>Area</th><th>Emirates</th><th>Service type</th><th>Priority</th><th>Contract</th><th>Supervisor</th><th>Vehicle</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>${list.map(r=>`<tr>
+    <td><span class="sr-no">#${r.srNo}</span>${r.items.length>1?`<div class="eyebrow" style="margin-top:3px">${r.items.length} items</div>`:''}</td>
+    <td class="mono" style="font-size:11.5px;color:var(--txt-2)">${esc(r.projectNo||'—')}</td>
+    <td class="mono" style="font-size:11.5px">${fmtDate(r.reportedDate)}</td>
+    <td><b>${esc(r.client)}</b></td>
+    <td>${esc(r.area)}</td><td>${esc(r.emirates)}</td>
+    <td>${esc(r.serviceType)}<div style="color:var(--txt-3);font-size:11.5px">${esc(r.equipment)}</div></td>
+    <td>${bdg(r.priority,1)}</td><td>${bdg(r.amc,1)}</td>
+    <td>${sup(r)?`<div class="who">${av(sup(r).name,26)}<div><b>${esc(sup(r).name)}</b><small>${(r.techIds||[]).length} tech</small></div></div>`:'<span style="color:var(--txt-3)">—</span>'}</td>
+    <td class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</td>
+    <td>${bdg(r.status)}${r.timeIn&&r.status==='Work Started'?`<div class="live" style="font-size:11px" data-tick="${r.timeIn}"></div>`:''}</td>
+    <td><div class="acts">
+      <button class="btn btn-icon" title="View" onclick="viewSR('${r.srNo}')">${icon('eye',14)}</button>
+      <button class="btn btn-icon" title="Edit" onclick="openSR('${r.srNo}')">${icon('pen',14)}</button>
+      ${r.status==='New'?`<button class="btn btn-sm btn-cool" onclick="openAllocate('${r.srNo}')">Allocate</button>`:''}
+      ${r.status==='Allocated'?`<button class="btn btn-sm btn-warm" onclick="startWork('${r.srNo}','admin')">Start</button>`:''}
+      ${r.status==='Work Started'?`<button class="btn btn-sm btn-done" onclick="openComplete('${r.srNo}','admin')">Complete</button>`:''}
+      ${r.status==='Work Completed'?`<button class="btn btn-sm" onclick="closeSR('${r.srNo}')">Close</button>`:''}
+    </div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- SR create / edit ---------- */
+let draft=null;
+function openSR(srNo){
+  const r=srNo?sr(srNo):null;
+  draft=r?JSON.parse(JSON.stringify(r)):{
+    srNo:'',projectNo:'',client:'',area:'',location:'',emirates:'Dubai',serviceType:'AC Checking',amc:'AMC',
+    priority:'Medium',equipment:'Ductable AC',description:'',items:[{floor:'',equipment:'Ductable AC',work:'',qty:1}],
+    reportedDate:now(),expectedFix:daysAgo(-1),scheduledDate:now(),status:'New',
+    supId:null,techIds:[],driverId:null,vehId:null,timeIn:null,timeOut:null,hours:null,
+    workPerformed:'',remarks:'',notes:'',material:'',replacement:'No',followUp:'No',timeline:[]
+  };
+  draft.__edit=!!r;
+  modal({title:draft.__edit?'Edit service request #'+r.srNo:'Register service request',eyebrow:draft.__edit?'Service request':'New complaint / service request',wide:true,
+    body:srForm(),
+    footer:`<button class="btn l btn-danger" onclick="closeModal()">Discard</button>
+            <button class="btn" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-cool" onclick="saveSR()">${draft.__edit?'Save changes':'Save request'}</button>`});
+}
+const dset=(k,v)=>{draft[k]=v};
+function srForm(){
+  const d=draft;
+  const dstr=ts=>{const x=new Date(ts||now());return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`};
+  return `
+  <div class="panel-t">Identification</div>
+  <div class="grid3">
+    <div class="field"><label>SR number</label><input class="inp mono" value="${esc(d.srNo)}" placeholder="Auto on save" oninput="dset('srNo',this.value)"></div>
+    <div class="field"><label>Project number</label><input class="inp mono" value="${esc(d.projectNo)}" placeholder="Optional" oninput="dset('projectNo',this.value)"></div>
+    <div class="field"><label>Service date</label><input class="inp" type="date" value="${dstr(d.reportedDate)}" onchange="dset('reportedDate',new Date(this.value+'T09:00').getTime())"></div>
+  </div>
+  <div class="panel-t" style="margin-top:8px">Client</div>
+  <div class="grid2">
+    <div class="field"><label>Client name</label><input class="inp" list="dlClients" value="${esc(d.client)}" placeholder="Nesto Hypermarket" oninput="dset('client',this.value)">
+      <datalist id="dlClients">${CLIENTS.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+    <div class="field"><label>Area</label><input class="inp" list="dlAreas" value="${esc(d.area)}" placeholder="Nad Al Hamar" oninput="dset('area',this.value)">
+      <datalist id="dlAreas">${AREAS.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>Location on site</label><input class="inp" value="${esc(d.location)}" placeholder="Ground floor, customer service side" oninput="dset('location',this.value)"></div>
+    <div class="field"><label>Emirates</label><select class="inp" onchange="dset('emirates',this.value)">${opts(EMIRATES,d.emirates,'Select')}</select></div>
+  </div>
+  <div class="panel-t" style="margin-top:8px">Classification</div>
+  <div class="grid3">
+    <div class="field"><label>Service type</label><select class="inp" onchange="dset('serviceType',this.value)">${opts(STYPES,d.serviceType,'Select')}</select></div>
+    <div class="field"><label>Contract type</label><select class="inp" onchange="dset('amc',this.value)">${opts(['AMC','Non-AMC'],d.amc,'Select')}</select></div>
+    <div class="field"><label>Priority</label><select class="inp" onchange="dset('priority',this.value)">${opts(PRIOS,d.priority,'Select')}</select></div>
+  </div>
+  <div class="grid3">
+    <div class="field"><label>Primary equipment</label><select class="inp" onchange="dset('equipment',this.value)">${opts(EQUIP,d.equipment,'Select')}</select></div>
+    <div class="field"><label>Expected fix by</label><input class="inp" type="date" value="${dstr(d.expectedFix)}" onchange="dset('expectedFix',new Date(this.value+'T18:00').getTime())"></div>
+    <div class="field"><label>Scheduled visit</label><input class="inp" type="date" value="${dstr(d.scheduledDate)}" onchange="dset('scheduledDate',new Date(this.value+'T09:00').getTime())"></div>
+  </div>
+  <div class="field"><label>Service description</label>
+    <textarea class="inp" placeholder="Ground floor G-19 ductable AC indoor fan motor removed and blower motor cleaning. Need water service." oninput="dset('description',this.value)">${esc(d.description)}</textarea></div>
+
+  <div class="panel-t" style="margin-top:8px">Service items — one request can carry several activities</div>
+  <div class="card" style="box-shadow:none;margin-bottom:14px"><div class="tbl-wrap"><table class="items-tbl">
+    <thead><tr><th style="width:34px">#</th><th>Floor / area</th><th>Equipment</th><th>Problem / work required</th><th style="width:78px">Qty</th><th style="width:40px"></th></tr></thead>
+    <tbody id="itemRows">${itemRows()}</tbody></table></div>
+    <div style="padding:10px 12px"><button class="btn btn-sm" onclick="addItem()">${icon('plus',13)} Add service item</button></div>
+  </div>
+
+  <div class="panel-t">Team &amp; vehicle assignment — leave blank to allocate later</div>
+  ${assignBlock()}`;
+}
+function itemRows(){
+  return draft.items.map((it,i)=>`<tr>
+    <td class="mono" style="color:var(--txt-3)">${i+1}</td>
+    <td><input value="${esc(it.floor)}" placeholder="Ground Floor G-19" oninput="draft.items[${i}].floor=this.value"></td>
+    <td><select onchange="draft.items[${i}].equipment=this.value">${opts(EQUIP,it.equipment,'Select')}</select></td>
+    <td><input value="${esc(it.work)}" placeholder="Fan motor / blower cleaning" oninput="draft.items[${i}].work=this.value"></td>
+    <td><input type="number" min="1" value="${it.qty}" oninput="draft.items[${i}].qty=Number(this.value)||1"></td>
+    <td>${draft.items.length>1?`<button class="btn btn-icon btn-danger" onclick="delItem(${i})">${icon('trash',13)}</button>`:''}</td></tr>`).join('');
+}
+function addItem(){draft.items.push({floor:'',equipment:draft.equipment,work:'',qty:1});$('#itemRows').innerHTML=itemRows()}
+function delItem(i){draft.items.splice(i,1);$('#itemRows').innerHTML=itemRows()}
+
+function assignBlock(){
+  const d=draft;
+  const supList=S.users.filter(u=>u.role==='Supervisor');
+  const techList=S.users.filter(u=>u.role==='Technical Staff');
+  const drvList=S.users.filter(u=>u.role==='Driver');
+  const dot=s=>({'Available':'🟢','Working':'🟠','Assigned':'🔵','On Leave':'⚪','Inactive':'⚪','In Service':'🔴','Maintenance':'🔴'}[s]||'⚪');
+  const uOpt=(list,sel,ph)=>`<option value="">${ph}</option>`+list.map(u=>{
+    const st=uStatus(u.id);const bad=['Inactive'].includes(st);
+    return `<option value="${u.id}"${sel===u.id?' selected':''}${bad?' disabled':''}>${dot(st)} ${esc(u.name)} — ${st}</option>`}).join('');
+  const vOpt=`<option value="">Select vehicle</option>`+S.vehicles.map(v=>{
+    const st=vStatus(v.id);const bad=['Maintenance','Inactive'].includes(st);
+    return `<option value="${v.id}"${d.vehId===v.id?' selected':''}${bad?' disabled':''}>${dot(st)} ${esc(v.reg)} — ${st}</option>`}).join('');
+  return `<div class="grid2">
+    <div class="field"><label>Supervisor</label><select class="inp" onchange="dset('supId',this.value||null)">${uOpt(supList,d.supId,'Select supervisor')}</select></div>
+    <div class="field"><label>Driver</label><select class="inp" onchange="dset('driverId',this.value||null)">${uOpt(drvList,d.driverId,'Select driver')}</select></div>
+  </div>
+  <div class="grid3">
+    <div class="field"><label>Technical staff 1</label><select class="inp" onchange="setTech(0,this.value)">${uOpt(techList,d.techIds[0],'Select technician')}</select></div>
+    <div class="field"><label>Technical staff 2 <span style="text-transform:none;letter-spacing:0;color:var(--txt-3)">(optional)</span></label><select class="inp" onchange="setTech(1,this.value)">${uOpt(techList,d.techIds[1],'Select technician')}</select></div>
+    <div class="field"><label>Vehicle</label><select class="inp" onchange="dset('vehId',this.value||null)">${vOpt}</select></div>
+  </div>
+  <div class="panel"><div class="panel-t">Resource availability right now</div>
+    <div class="grid3" style="gap:14px">
+      <div><div class="eyebrow" style="margin-bottom:7px">Supervisors</div>${supList.map(u=>resRow(u)).join('')}</div>
+      <div><div class="eyebrow" style="margin-bottom:7px">Technical staff</div>${techList.map(u=>resRow(u)).join('')}</div>
+      <div><div class="eyebrow" style="margin-bottom:7px">Vehicles</div>${S.vehicles.map(v=>`<div class="res ${draft.vehId===v.id?'pick':''}"><span class="mono">${esc(v.reg)}</span><span class="st">${bdg(vStatus(v.id))}</span></div>`).join('')}</div>
+    </div></div>`;
+}
+function resRow(u){const picked=draft.supId===u.id||draft.techIds.includes(u.id)||draft.driverId===u.id;
+  return `<div class="res ${picked?'pick':''}">${av(u.name,22)}<span>${esc(u.name)}</span><span class="st">${bdg(uStatus(u.id))}</span></div>`}
+function setTech(i,v){draft.techIds=draft.techIds.slice();if(v)draft.techIds[i]=v;else draft.techIds[i]=null;draft.techIds=draft.techIds.filter(Boolean);
+  const seen=new Set();draft.techIds=draft.techIds.filter(x=>!seen.has(x)&&seen.add(x))}
+
+function saveSR(){
+  const d=draft;
+  if(!d.client.trim()){toast('Client required','Enter the client name before saving.','err');return}
+  if(!d.area.trim()){toast('Area required','Enter the area so the crew knows where to go.','err');return}
+  if(!d.items.some(i=>i.work.trim())&&!d.description.trim()){toast('Describe the work','Add at least one service item or a description.','err');return}
+  d.items=d.items.filter(i=>i.work.trim()||i.floor.trim());
+  if(!d.items.length)d.items=[{floor:d.location||d.area,equipment:d.equipment,work:d.serviceType,qty:1}];
+  const editing=d.__edit;delete d.__edit;
+  if(!d.srNo.trim())d.srNo=nextSR();
+  const hadTeam=d.supId&&d.vehId;
+  if(!editing){
+    d.timeline=[{t:now(),e:'Service request registered',by:'System Administrator'}];
+    d.status='New';
+    S.requests.unshift(d);
+    notify('admin','Service request registered',`SR #${d.srNo} · ${d.client}, ${d.area} — ${d.serviceType}.`,null,now(),d.srNo);
+    toast('Service request saved','SR #'+d.srNo+' created with status NEW.','ok');
+    closeModal();render();
+    if(hadTeam)setTimeout(()=>openAllocate(d.srNo),350);
+  }else{
+    const i=S.requests.findIndex(r=>r.srNo===d.srNo);
+    if(i>-1)S.requests[i]=d;else S.requests.unshift(d);
+    d.timeline.push({t:now(),e:'Service request updated',by:'System Administrator'});
+    toast('Changes saved','SR #'+d.srNo+' updated.','ok');
+    closeModal();render();
+  }
+}
+
+/* ---------- allocation ---------- */
+function openAllocate(srNo){
+  const r=sr(srNo);if(!r)return;
+  draft=JSON.parse(JSON.stringify(r));draft.__edit=true;
+  modal({title:'Allocate SR #'+r.srNo,eyebrow:`${r.client} · ${r.area}, ${r.emirates}`,wide:true,
+    body:`<div class="panel" style="margin-bottom:16px"><div class="grid2" style="gap:14px">
+        <div><div class="panel-t">Work required</div><div style="font-size:13px">${esc(r.description||'—')}</div></div>
+        <div><div class="panel-t">Classification</div>${bdg(r.serviceType,1)} ${bdg(r.amc,1)} ${bdg(r.priority,1)}
+          <div style="margin-top:8px;font-size:12.5px;color:var(--txt-2)">Fix by ${fmtDate(r.expectedFix)} · ${r.items.length} service item${r.items.length>1?'s':''}</div></div>
+      </div></div>${assignBlock()}`,
+    footer:`<button class="btn l" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-cool" onclick="doAllocate('${r.srNo}')">${icon('send',14)} Allocate &amp; notify supervisor</button>`});
+}
+function doAllocate(srNo){
+  const r=sr(srNo),d=draft;
+  if(!d.supId){toast('Supervisor required','A supervisor must own the job before it can be allocated.','err');return}
+  if(!d.techIds.filter(Boolean).length){toast('Technician required','Assign at least one technical staff member.','err');return}
+  if(!d.vehId){toast('Vehicle required','Assign a service vehicle.','err');return}
+  Object.assign(r,{supId:d.supId,techIds:d.techIds.filter(Boolean),driverId:d.driverId,vehId:d.vehId,status:'Allocated'});
+  r.timeline.push({t:now(),e:'Allocated to '+user(r.supId).name,by:'System Administrator'});
+  r.timeline.push({t:now()+1,e:'Assignment notification sent to supervisor',by:'System'});
+  notify('supervisor','New service request assigned',
+    `SR #${r.srNo} · ${r.client}\n${r.area}, ${r.emirates}\n${r.equipment} — ${r.serviceType}\nPriority: ${r.priority}\nFix by: ${fmtDate(r.expectedFix)}`,r.supId,now(),r.srNo);
+  closeModal();afterAction();
+  toast('Allocated','SR #'+r.srNo+' sent to '+user(r.supId).name+' · vehicle '+veh(r.vehId).reg,'ok');
+  setTimeout(()=>toast('Supervisor notified','Open the supervisor app to start the work.','warn'),900);
+}
+
+/* ---------- workflow actions ---------- */
+/* the phone app is a live view of the same state: refresh it whenever it is open */
+function phLive(){return $('#phoneVeil').classList.contains('on')}
+function afterAction(){render();if(phLive())phRender()}
+function startWork(srNo,from){
+  const r=sr(srNo);if(!r)return;
+  confirmBox('Start work on SR #'+r.srNo+'?',
+    `Time in will be recorded now. ${teamNames(r).join(', ')} will move to Working and ${r.vehId?veh(r.vehId).reg:'the vehicle'} to In Service.`,
+    'Start work','btn-warm',()=>{
+      r.status='Work Started';r.timeIn=now();
+      r.timeline.push({t:r.timeIn,e:'Work started on site',by:user(r.supId).name});
+      notify('admin','Work started',`SR #${r.srNo} · ${r.client} — ${user(r.supId).name} started on site.`,null,now(),r.srNo);
+      save();closeModal();
+      if(from==='sup')phSheet=null;
+      afterAction();
+      toast('Work started','Time in '+fmtTime(r.timeIn)+' · crew and vehicle now shown as engaged.','warn');
+    });
+}
+let cdraft={};
+function openComplete(srNo,from){
+  const r=sr(srNo);if(!r)return;
+  cdraft={workPerformed:'',remarks:'',notes:'',material:'',replacement:'No',followUp:'No',from};
+  modal({title:'Complete work — SR #'+r.srNo,eyebrow:`${r.client} · ${r.area}`,
+    body:`<div class="panel" style="margin-bottom:16px;display:flex;gap:22px;flex-wrap:wrap">
+      <div><div class="panel-t">Time in</div><b class="mono">${fmtTime(r.timeIn)}</b></div>
+      <div><div class="panel-t">Elapsed</div><b class="live mono" data-tick="${r.timeIn}">${dur(now()-r.timeIn)}</b></div>
+      <div><div class="panel-t">Crew</div><b>${esc(teamNames(r).join(', '))}</b></div>
+      <div><div class="panel-t">Vehicle</div><b class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</b></div></div>
+      <div class="field"><label>Work performed</label><textarea class="inp" placeholder="Gas charging completed." oninput="cdraft.workPerformed=this.value"></textarea></div>
+      <div class="field"><label>Completion remarks</label><textarea class="inp" placeholder="AC checked and gas charged successfully." oninput="cdraft.remarks=this.value"></textarea></div>
+      <div class="field"><label>Additional notes</label><input class="inp" placeholder="Optional" oninput="cdraft.notes=this.value"></div>
+      <div class="grid3">
+        <div class="field"><label>Material used</label><input class="inp" placeholder="R410a 2 kg" oninput="cdraft.material=this.value"></div>
+        <div class="field"><label>Replacement required</label><select class="inp" onchange="cdraft.replacement=this.value"><option>No</option><option>Yes</option></select></div>
+        <div class="field"><label>Follow-up required</label><select class="inp" onchange="cdraft.followUp=this.value"><option>No</option><option>Yes</option></select></div>
+      </div>`,
+    footer:`<button class="btn l" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-done" onclick="doComplete('${r.srNo}')">${icon('check',14)} Complete work</button>`});
+  later(startTickers);startTickers();
+}
+function doComplete(srNo){
+  const r=sr(srNo);
+  if(!cdraft.workPerformed.trim()){toast('Work performed required','Record what was done on site.','err');return}
+  r.timeOut=now();r.hours=hoursOf(r.timeIn,r.timeOut);r.status='Work Completed';
+  Object.assign(r,{workPerformed:cdraft.workPerformed,remarks:cdraft.remarks,notes:cdraft.notes,material:cdraft.material,replacement:cdraft.replacement,followUp:cdraft.followUp});
+  r.timeline.push({t:r.timeOut,e:'Work completed',by:user(r.supId).name});
+  notify('admin','Work completed',`SR #${r.srNo} · ${r.client} — ${r.hours} h recorded by ${user(r.supId).name}.`,null,now(),r.srNo);
+  if(cdraft.followUp==='Yes')notify('admin','Follow-up flagged',`SR #${r.srNo} · ${r.client} — supervisor marked follow-up required.`,null,now(),r.srNo);
+  const from=cdraft.from;save();closeModal();
+  phSheet=null;if(from==='sup')phTab='completed';
+  afterAction();
+  toast('Service request completed','Time out '+fmtTime(r.timeOut)+' · '+r.hours+' h. Crew and vehicle released.','ok');
+}
+function closeSR(srNo){
+  const r=sr(srNo);
+  confirmBox('Close SR #'+r.srNo+'?','The request has been completed on site. Closing files it into reporting and work history.','Close request','btn-p',()=>{
+    r.status='Closed';r.timeline.push({t:now(),e:'Reviewed and closed',by:'System Administrator'});
+    save();closeModal();phSheet=null;afterAction();toast('Request closed','SR #'+r.srNo+' filed to history.','ok');
+  });
+}
+function cancelSR(srNo){
+  const r=sr(srNo);
+  confirmBox('Cancel SR #'+r.srNo+'?','The crew and vehicle are released and the request is marked cancelled.','Cancel request','btn-danger',()=>{
+    r.status='Cancelled';r.timeline.push({t:now(),e:'Cancelled',by:'System Administrator'});
+    save();closeModal();phSheet=null;afterAction();toast('Request cancelled','SR #'+r.srNo+' will not be dispatched.','warn');
+  });
+}
+
+/* =====================================================================
+   MODALS
+   ===================================================================== */
+function modal({title,eyebrow,body,footer,wide,slim}){
+  $('#modalHost').innerHTML=`<div class="veil" onclick="if(event.target===this)closeModal()">
+    <div class="modal ${wide?'wide':''}${slim?' slim':''}" role="dialog" aria-modal="true">
+      <div class="modal-h"><div>${eyebrow?`<div class="eyebrow">${esc(eyebrow)}</div>`:''}<h3>${esc(title)}</h3></div>
+        <button class="x" onclick="closeModal()" aria-label="Close">${icon('x',15)}</button></div>
+      <div class="modal-b">${body}</div>
+      ${footer?`<div class="modal-f">${footer}</div>`:''}
+    </div></div>`;
+  document.addEventListener('keydown',escClose);
+}
+function escClose(e){if(e.key==='Escape')closeModal()}
+function closeModal(){$('#modalHost').innerHTML='';document.removeEventListener('keydown',escClose)}
+let confirmFn=null;
+function confirmBox(title,msg,label,cls,fn){
+  confirmFn=fn;
+  modal({title,slim:true,body:`<p style="margin:0;color:var(--txt-2)">${esc(msg)}</p>`,
+    footer:`<button class="btn l" onclick="closeModal()">Not now</button><button class="btn ${cls}" onclick="confirmFn&&confirmFn()">${esc(label)}</button>`});
+}
+
+/* ---------- SR detail ---------- */
+function viewSR(srNo){
+  const r=sr(srNo);if(!r)return;
+  const acts=[];
+  if(r.status==='New')acts.push(`<button class="btn btn-cool" onclick="openAllocate('${r.srNo}')">Allocate</button>`);
+  if(r.status==='Allocated')acts.push(`<button class="btn btn-warm" onclick="startWork('${r.srNo}','admin')">Start work</button>`);
+  if(r.status==='Work Started')acts.push(`<button class="btn btn-done" onclick="openComplete('${r.srNo}','admin')">Complete work</button>`);
+  if(r.status==='Work Completed')acts.push(`<button class="btn btn-p" onclick="closeSR('${r.srNo}')">Close request</button>`);
+  if(['New','Allocated'].includes(r.status))acts.push(`<button class="btn btn-danger" onclick="cancelSR('${r.srNo}')">Cancel</button>`);
+  modal({title:'Service request #'+r.srNo,eyebrow:`${r.client} · ${r.area}, ${r.emirates}`,wide:true,
+    body:`
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">${bdg(r.status)} ${bdg(r.priority,1)} ${bdg(r.amc,1)}
+      <span class="b b-idle b-sq"><i></i>${esc(r.serviceType)}</span><span class="b b-idle b-sq"><i></i>${esc(r.equipment)}</span>
+      ${r.projectNo?`<span class="b b-idle b-sq mono"><i></i>${esc(r.projectNo)}</span>`:''}</div>
+    <div class="grid2" style="gap:16px">
+      <div>
+        <div class="panel" style="margin-bottom:14px"><div class="panel-t">Service description</div>
+          <div style="font-size:13.5px">${esc(r.description||'—')}</div></div>
+        <div class="panel" style="margin-bottom:14px"><div class="panel-t">Service items (${r.items.length})</div>
+          <div class="tbl-wrap"><table><thead><tr><th>#</th><th>Floor / area</th><th>Equipment</th><th>Work required</th><th>Qty</th></tr></thead>
+          <tbody>${r.items.map((i,n)=>`<tr><td class="mono">${n+1}</td><td>${esc(i.floor||'—')}</td><td>${esc(i.equipment)}</td><td>${esc(i.work)}</td><td class="mono">${i.qty}</td></tr>`).join('')}</tbody></table></div></div>
+        <div class="panel"><div class="panel-t">Dates &amp; time</div>
+          <dl class="kv">
+            <dt>Reported</dt><dd class="mono">${fmtDT(r.reportedDate)}</dd>
+            <dt>Scheduled</dt><dd class="mono">${fmtDate(r.scheduledDate)}</dd>
+            <dt>Expected fix</dt><dd class="mono">${fmtDate(r.expectedFix)}</dd>
+            <dt>Time in</dt><dd class="mono">${r.timeIn?fmtDT(r.timeIn):'—'}</dd>
+            <dt>Time out</dt><dd class="mono">${r.timeOut?fmtDT(r.timeOut):'—'}</dd>
+            <dt>Working hours</dt><dd class="mono">${r.hours!=null?r.hours+' h':(r.timeIn?`<span class="live" data-tick="${r.timeIn}">${dur(now()-r.timeIn)}</span> running`:'—')}</dd>
+          </dl></div>
+      </div>
+      <div>
+        <div class="panel" style="margin-bottom:14px"><div class="panel-t">Assigned team</div>
+          ${r.supId?`<div class="res">${av(user(r.supId).name,24)}<div><b>${esc(user(r.supId).name)}</b><div class="eyebrow">Supervisor</div></div><span class="st">${bdg(uStatus(r.supId))}</span></div>`:'<div style="color:var(--txt-3);font-size:13px">No supervisor yet</div>'}
+          ${(r.techIds||[]).map(i=>`<div class="res">${av(user(i).name,24)}<div><b>${esc(user(i).name)}</b><div class="eyebrow">Technical staff</div></div><span class="st">${bdg(uStatus(i))}</span></div>`).join('')}
+          ${r.driverId?`<div class="res">${av(user(r.driverId).name,24)}<div><b>${esc(user(r.driverId).name)}</b><div class="eyebrow">Driver</div></div><span class="st">${bdg(uStatus(r.driverId))}</span></div>`:''}
+          ${r.vehId?`<div class="res"><span class="mono" style="font-weight:600">${esc(veh(r.vehId).reg)}</span><span style="color:var(--txt-3);font-size:12px">${esc(veh(r.vehId).type)}</span><span class="st">${bdg(vStatus(r.vehId))}</span></div>`:''}
+        </div>
+        ${r.workPerformed||r.remarks?`<div class="panel" style="margin-bottom:14px"><div class="panel-t">Completion record</div>
+          <dl class="kv">
+            <dt>Work performed</dt><dd>${esc(r.workPerformed||'—')}</dd>
+            <dt>Remarks</dt><dd>${esc(r.remarks||'—')}</dd>
+            ${r.material?`<dt>Material used</dt><dd>${esc(r.material)}</dd>`:''}
+            <dt>Replacement</dt><dd>${esc(r.replacement)}</dd>
+            <dt>Follow-up</dt><dd>${esc(r.followUp)}</dd>
+            ${r.notes?`<dt>Notes</dt><dd>${esc(r.notes)}</dd>`:''}
+          </dl></div>`:''}
+        <div class="panel"><div class="panel-t">Timeline</div>
+          <ul class="tl">${r.timeline.slice().sort((a,b)=>a.t-b.t).map((t,i,arr)=>`<li class="${i===arr.length-1?'acc':''}"><time>${fmtTime(t.t)}</time><b>${esc(t.e)}</b><p>${esc(t.by||'')}</p></li>`).join('')}</ul></div>
+      </div>
+    </div>`,
+    footer:`<button class="btn l" onclick="openSR('${r.srNo}')">${icon('pen',14)} Edit</button>
+            <button class="btn" onclick="closeModal()">Close</button>${acts.join('')}`});
+  startTickers();
+}
+
+/* =====================================================================
+   USER MANAGEMENT
+   ===================================================================== */
+function filterUsers(){
+  const f=F.us,q=f.q.toLowerCase();
+  return S.users.filter(u=>{
+    if(f.role&&u.role!==f.role)return false;
+    if(f.em&&u.emirates!==f.em)return false;
+    if(f.status&&uStatus(u.id)!==f.status)return false;
+    if(q&&![u.name,u.empId,u.role,u.destination,u.emirates,u.mobile,u.email].join(' ').toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+function vUsers(){
+  const f=F.us,list=filterUsers();
+  return `<div class="stat-grid" style="margin-bottom:18px">
+    ${statCard('Total users',S.users.length,'All roles')}
+    ${statCard('Supervisors',S.users.filter(u=>u.role==='Supervisor').length,'Job owners','v')}
+    ${statCard('Technical staff',S.users.filter(u=>u.role==='Technical Staff').length,'Field technicians','c')}
+    ${statCard('Drivers',S.users.filter(u=>u.role==='Driver').length,'Vehicle custodians')}
+    ${statCard('Available now',fieldUsers().filter(u=>uStatus(u.id)==='Available').length,'Ready to dispatch','c')}
+    ${statCard('Engaged now',fieldUsers().filter(u=>['Working','Assigned'].includes(uStatus(u.id))).length,'On active requests','w')}
+  </div>
+  <div class="card">
+    <div class="bar-tools">
+      <div class="search">${icon('search',15)}<input class="inp" placeholder="Search name, employee ID, mobile…" value="${esc(f.q)}" oninput="F.us.q=this.value;$('#uTable').innerHTML=uTable(filterUsers())"></div>
+      <select class="inp" onchange="setF('us','role',this.value)">${opts(ROLES,f.role,'All roles')}</select>
+      <select class="inp" onchange="setF('us','status',this.value)">${opts(USTATUS,f.status,'All statuses')}</select>
+      <select class="inp" onchange="setF('us','em',this.value)">${opts(EMIRATES,f.em,'All emirates')}</select>
+      <button class="btn btn-sm" onclick="clearF('us')">Clear</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openUser()">${icon('plus',14)} Add user</button>
+    </div>
+    <div id="uTable">${uTable(list)}</div>
+  </div>`;
+}
+function uTable(list){
+  if(!list.length)return `<div class="t-empty"><b>No users match</b>Try a different role or search term.</div>`;
+  return `<div class="tbl-wrap"><table>
+  <thead><tr><th>Employee</th><th>Employee ID</th><th>Role</th><th>Destination</th><th>Emirates</th><th>Current assignment</th><th>Vehicle</th><th>Status</th><th>History</th><th>Actions</th></tr></thead>
+  <tbody>${list.map(u=>{
+    const st=uStatus(u.id),c=curSR(u.id),h=historyOf(u.id);
+    return `<tr>
+    <td><div class="who">${av(u.name)}<div><b>${esc(u.name)}</b><small>${esc(u.mobile)}</small></div></div></td>
+    <td class="mono">${esc(u.empId)}</td>
+    <td>${esc(u.role)}</td><td>${esc(u.destination)}</td><td>${esc(u.emirates)}</td>
+    <td>${c?`<span class="sr-no">#${c.srNo}</span> <span style="font-size:12px">${esc(c.client)}</span><div style="color:var(--txt-3);font-size:11.5px">${esc(c.area)} · ${esc(c.serviceType)}</div>`:'<span style="color:var(--txt-3)">—</span>'}</td>
+    <td class="mono">${u.vehId?esc(veh(u.vehId).reg):'—'}</td>
+    <td>${bdg(st)}</td>
+    <td><button class="btn btn-icon" title="Work history" onclick="openHistory('${u.id}')" style="${h.length?'color:var(--warm);border-color:#F2DCBE;background:var(--warm-soft)':''}">${icon('hist',14)}</button>
+        <span class="mono" style="font-size:11px;color:var(--txt-3);margin-left:4px">${h.length}</span></td>
+    <td><div class="acts">
+      <button class="btn btn-icon" title="View" onclick="viewUser('${u.id}')">${icon('eye',14)}</button>
+      <button class="btn btn-icon" title="Edit" onclick="openUser('${u.id}')">${icon('pen',14)}</button>
+      <button class="btn btn-sm" onclick="toggleUser('${u.id}')">${u.base==='Inactive'?'Activate':'Deactivate'}</button>
+    </div></td></tr>`}).join('')}</tbody></table></div>`;
+}
+let udraft=null;
+function openUser(id){
+  const u=id?user(id):null;
+  udraft=u?Object.assign({},u):{id:uid('U'),name:'',empId:'EMP-'+String(60+S.users.length).padStart(3,'0'),role:'Technical Staff',
+    destination:'',emirates:'Dubai',mobile:'',email:'',address:'',joinDate:now(),base:'Available',supId:null,vehId:null};
+  udraft.__edit=!!u;
+  const dstr=ts=>{const x=new Date(ts||now());return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`};
+  modal({title:u?'Edit '+u.name:'Add user',eyebrow:u?'Employee '+u.empId:'Workforce master data',
+    body:`<div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">
+        <div id="upAv">${av(udraft.name||'New User',52)}</div>
+        <div><div class="eyebrow">Profile photo</div>
+          <button class="btn btn-sm" style="margin-top:6px" onclick="toast('Photo upload','In the production system this opens the device camera or file picker. The prototype uses generated initials.')">Upload photo</button></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Full name</label><input class="inp" value="${esc(udraft.name)}" oninput="udraft.name=this.value;$('#upAv').innerHTML=av(this.value||'New User',52)"></div>
+        <div class="field"><label>Employee ID</label><input class="inp mono" value="${esc(udraft.empId)}" oninput="udraft.empId=this.value"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Mobile number</label><input class="inp" value="${esc(udraft.mobile)}" placeholder="+971 5X XXX XXXX" oninput="udraft.mobile=this.value"></div>
+        <div class="field"><label>Email</label><input class="inp" type="email" value="${esc(udraft.email)}" oninput="udraft.email=this.value"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Role</label><select class="inp" onchange="udraft.role=this.value;refreshUserForm()">${opts(ROLES,udraft.role,'Select')}</select></div>
+        <div class="field"><label>Destination</label><input class="inp" list="dlAreas2" value="${esc(udraft.destination)}" oninput="udraft.destination=this.value">
+          <datalist id="dlAreas2">${AREAS.concat(['Head Office']).map(a=>`<option value="${esc(a)}">`).join('')}</datalist></div>
+        <div class="field"><label>Emirates</label><select class="inp" onchange="udraft.emirates=this.value">${opts(EMIRATES,udraft.emirates,'Select')}</select></div>
+      </div>
+      <div class="field"><label>Address</label><input class="inp" value="${esc(udraft.address)}" oninput="udraft.address=this.value"></div>
+      <div class="grid3">
+        <div class="field"><label>Joining date</label><input class="inp" type="date" value="${dstr(udraft.joinDate)}" onchange="udraft.joinDate=new Date(this.value).getTime()"></div>
+        <div class="field"><label>Status</label><select class="inp" onchange="udraft.base=this.value">${opts(['Available','On Leave','Inactive'],udraft.base,'Select')}</select></div>
+        <div class="field"><label>Assigned vehicle</label><select class="inp" onchange="udraft.vehId=this.value||null">${opts(S.vehicles.map(v=>({v:v.id,l:v.reg+' — '+v.type})),udraft.vehId,'None')}</select></div>
+      </div>
+      <div id="supField">${supFieldHTML()}</div>
+      <p style="color:var(--txt-3);font-size:12.5px;margin:6px 0 0">Live status (Working / Assigned) is driven by active service requests, so it isn't set by hand here.</p>`,
+    footer:`<button class="btn l" onclick="closeModal()">Cancel</button><button class="btn btn-cool" onclick="saveUser()">${u?'Save changes':'Add user'}</button>`});
+}
+function supFieldHTML(){
+  if(!['Technical Staff','Driver'].includes(udraft.role))return '';
+  return `<div class="field"><label>Assigned supervisor / team</label>
+    <select class="inp" onchange="udraft.supId=this.value||null">${opts(S.users.filter(u=>u.role==='Supervisor').map(u=>({v:u.id,l:u.name+' — '+u.destination})),udraft.supId,'Unassigned')}</select></div>`;
+}
+function refreshUserForm(){$('#supField').innerHTML=supFieldHTML()}
+function saveUser(){
+  if(!udraft.name.trim()){toast('Name required','Enter the employee name.','err');return}
+  const edit=udraft.__edit;delete udraft.__edit;
+  if(!udraft.email)udraft.email=udraft.name.toLowerCase().replace(/[^a-z]+/g,'.')+'@coolchainfm.ae';
+  if(edit){const i=S.users.findIndex(u=>u.id===udraft.id);S.users[i]=udraft;toast('User updated',udraft.name+' saved.','ok')}
+  else{S.users.push(udraft);toast('User added',udraft.name+' · '+udraft.role+' · '+udraft.empId,'ok')}
+  closeModal();render();
+}
+function toggleUser(id){
+  const u=user(id);
+  if(u.base!=='Inactive'&&curSR(id)){toast('Cannot deactivate',u.name+' is on an active service request.','err');return}
+  u.base=u.base==='Inactive'?'Available':'Inactive';save();render();
+  toast(u.base==='Inactive'?'User deactivated':'User activated',u.name+' is now '+u.base+'.','warn');
+}
+function viewUser(id){
+  const u=user(id),st=uStatus(id),c=curSR(id),h=historyOf(id);
+  const hrs=h.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+  modal({title:u.name,eyebrow:u.role+' · '+u.empId,
+    body:`<div style="display:flex;gap:14px;align-items:center;margin-bottom:18px">${av(u.name,52)}
+      <div><div style="display:flex;gap:7px;align-items:center">${bdg(st)}${u.vehId?`<span class="b b-idle b-sq mono"><i></i>${esc(veh(u.vehId).reg)}</span>`:''}</div>
+      <div style="color:var(--txt-2);font-size:12.5px;margin-top:5px">${esc(u.destination)}, ${esc(u.emirates)} · joined ${fmtDate(u.joinDate)}</div></div></div>
+      <dl class="kv" style="margin-bottom:16px">
+        <dt>Mobile</dt><dd class="mono">${esc(u.mobile)}</dd>
+        <dt>Email</dt><dd>${esc(u.email)}</dd>
+        <dt>Address</dt><dd>${esc(u.address||'—')}</dd>
+        <dt>Supervisor</dt><dd>${u.supId?esc(user(u.supId).name):'—'}</dd>
+        <dt>Base status</dt><dd>${esc(u.base)}</dd>
+      </dl>
+      <div class="panel" style="margin-bottom:14px"><div class="panel-t">Current assignment</div>
+        ${c?`<span class="sr-no">#${c.srNo}</span> <b>${esc(c.client)}</b> — ${esc(c.serviceType)}
+             <div style="color:var(--txt-2);font-size:12.5px;margin-top:4px">${esc(c.area)}, ${esc(c.emirates)} · ${bdg(c.status)} ${c.timeIn?`· started ${fmtTime(c.timeIn)}`:''}</div>`
+           :'<span style="color:var(--txt-3);font-size:13px">Not on a job right now.</span>'}</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${statCard('Total requests',h.length,'Attended','c')}
+        ${statCard('Completed',h.filter(r=>['Work Completed','Closed'].includes(r.status)).length,'Signed off','d')}
+        ${statCard('Working hours',hrs.toFixed(1),'Logged on site','w')}
+      </div>`,
+    footer:`<button class="btn l" onclick="openHistory('${u.id}')">${icon('hist',14)} Work history</button>
+            <button class="btn" onclick="closeModal()">Close</button>
+            <button class="btn btn-cool" onclick="openUser('${u.id}')">Edit user</button>`});
+}
+function openHistory(id){
+  const u=user(id),h=historyOf(id);
+  const done=h.filter(r=>['Work Completed','Closed'].includes(r.status));
+  const hrs=h.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+  modal({title:'Work history — '+u.name,eyebrow:u.role+' · '+u.empId,wide:true,
+    body:`<div class="stat-grid" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+      ${statCard('Total requests',h.length,'','c')}
+      ${statCard('Completed',done.length,'','d')}
+      ${statCard('Active',h.filter(r=>r.status==='Work Started').length,'','w')}
+      ${statCard('AMC jobs',h.filter(r=>r.amc==='AMC').length,'')}
+      ${statCard('Non-AMC jobs',h.filter(r=>r.amc==='Non-AMC').length,'','v')}
+      ${statCard('Working hours',hrs.toFixed(1),'','h')}
+    </div>
+    ${h.length?`<div class="tbl-wrap card" style="box-shadow:none"><table>
+      <thead><tr><th>Date</th><th>SR No</th><th>Client</th><th>Location</th><th>Service</th><th>Contract</th><th>Team</th><th>Vehicle</th><th>Time in</th><th>Time out</th><th>Hours</th><th>Status</th><th>Remarks</th></tr></thead>
+      <tbody>${h.map(r=>`<tr>
+        <td class="mono" style="font-size:11.5px">${fmtDate(r.timeIn||r.reportedDate)}</td>
+        <td><span class="sr-no">#${r.srNo}</span></td>
+        <td>${esc(r.client)}</td>
+        <td>${esc(r.area)}<div style="color:var(--txt-3);font-size:11.5px">${esc(r.emirates)}</div></td>
+        <td>${esc(r.serviceType)}<div style="color:var(--txt-3);font-size:11.5px">${esc(r.equipment)}</div></td>
+        <td>${bdg(r.amc,1)}</td>
+        <td style="font-size:12px">${esc(teamNames(r).join(', '))}</td>
+        <td class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</td>
+        <td class="mono">${fmtTime(r.timeIn)}</td>
+        <td class="mono">${r.timeOut?fmtTime(r.timeOut):'—'}</td>
+        <td class="mono">${r.hours!=null?r.hours:'<span class="live" data-tick="'+r.timeIn+'"></span>'}</td>
+        <td>${bdg(r.status)}</td>
+        <td style="max-width:230px;font-size:12px;color:var(--txt-2)">${esc(r.remarks||'—')}</td>
+      </tr>`).join('')}</tbody></table></div>`
+    :`<div class="t-empty"><b>No service history yet</b>${esc(u.name)} has not been assigned to a completed request.</div>`}`,
+    footer:`<button class="btn" onclick="closeModal()">Close</button>`});
+  startTickers();
+}
+
+/* =====================================================================
+   VEHICLE MANAGEMENT
+   ===================================================================== */
+function filterVeh(){
+  const f=F.vh,q=f.q.toLowerCase();
+  return S.vehicles.filter(v=>{
+    if(f.status&&vStatus(v.id)!==f.status)return false;
+    if(f.type&&v.type!==f.type)return false;
+    if(f.loc&&v.location!==f.loc)return false;
+    if(q&&![v.reg,v.make,v.model,v.type,v.location,v.emirates].join(' ').toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+const VTYPES=['Service Van','Pickup','Crane Truck','Car'];
+function vVehicles(){
+  const f=F.vh,list=filterVeh();
+  const soon=S.vehicles.filter(v=>v.insuranceExpiry-now()<60*864e5);
+  return `<div class="stat-grid" style="margin-bottom:18px">
+    ${statCard('Total vehicles',S.vehicles.length,'Service fleet')}
+    ${statCard('Available',S.vehicles.filter(v=>vStatus(v.id)==='Available').length,'Ready to dispatch','c')}
+    ${statCard('Assigned',S.vehicles.filter(v=>vStatus(v.id)==='Assigned').length,'Allocated to a request','v')}
+    ${statCard('In service',S.vehicles.filter(v=>vStatus(v.id)==='In Service').length,'Out on a job','w')}
+    ${statCard('Maintenance',S.vehicles.filter(v=>vStatus(v.id)==='Maintenance').length,'Off road','h')}
+    ${statCard('Insurance due',soon.length,'Within 60 days','h')}
+  </div>
+  <div class="card">
+    <div class="bar-tools">
+      <div class="search">${icon('search',15)}<input class="inp" placeholder="Search registration, make, model…" value="${esc(f.q)}" oninput="F.vh.q=this.value;$('#vTable').innerHTML=vTable(filterVeh())"></div>
+      <select class="inp" onchange="setF('vh','status',this.value)">${opts(VSTATUS,f.status,'All statuses')}</select>
+      <select class="inp" onchange="setF('vh','type',this.value)">${opts(VTYPES,f.type,'All types')}</select>
+      <select class="inp" onchange="setF('vh','loc',this.value)">${opts([...new Set(S.vehicles.map(v=>v.location))],f.loc,'All locations')}</select>
+      <button class="btn btn-sm" onclick="clearF('vh')">Clear</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openVeh()">${icon('plus',14)} Add vehicle</button>
+    </div>
+    <div id="vTable">${vTable(list)}</div>
+  </div>`;
+}
+function vTable(list){
+  if(!list.length)return `<div class="t-empty"><b>No vehicles match</b>Try a different status or location.</div>`;
+  return `<div class="tbl-wrap"><table>
+  <thead><tr><th>Registration</th><th>Type</th><th>Model</th><th>Driver</th><th>Supervisor</th><th>Location</th><th>Current assignment</th><th>Status</th><th>Service due</th><th>Insurance expiry</th><th>Actions</th></tr></thead>
+  <tbody>${list.map(v=>{
+    const c=curSRVeh(v.id),insSoon=v.insuranceExpiry-now()<60*864e5;
+    return `<tr>
+    <td><b class="mono">${esc(v.reg)}</b><div class="eyebrow">${v.year}</div></td>
+    <td>${esc(v.type)}</td><td>${esc(v.make)} ${esc(v.model)}<div style="color:var(--txt-3);font-size:11.5px">${esc(v.fuel)}</div></td>
+    <td>${v.driverId?`<div class="who">${av(user(v.driverId).name,26)}<b>${esc(user(v.driverId).name)}</b></div>`:'<span style="color:var(--txt-3)">Unassigned</span>'}</td>
+    <td>${v.supId?esc(user(v.supId).name):'—'}</td>
+    <td>${esc(v.location)}<div style="color:var(--txt-3);font-size:11.5px">${esc(v.emirates)}</div></td>
+    <td>${c?`<span class="sr-no">#${c.srNo}</span><div style="font-size:11.5px;color:var(--txt-3)">${esc(c.client)}</div>`:'<span style="color:var(--txt-3)">—</span>'}</td>
+    <td>${bdg(vStatus(v.id))}</td>
+    <td class="mono" style="font-size:11.5px">${fmtDate(v.serviceDue)}</td>
+    <td class="mono" style="font-size:11.5px;${insSoon?'color:var(--hot);font-weight:600':''}">${fmtDate(v.insuranceExpiry)}</td>
+    <td><div class="acts">
+      <button class="btn btn-icon" title="View" onclick="viewVeh('${v.id}')">${icon('eye',14)}</button>
+      <button class="btn btn-icon" title="Edit" onclick="openVeh('${v.id}')">${icon('pen',14)}</button>
+      <button class="btn btn-icon" title="Vehicle history" onclick="vehHistory('${v.id}')">${icon('hist',14)}</button>
+    </div></td></tr>`}).join('')}</tbody></table></div>`;
+}
+let vdraft=null;
+function openVeh(id){
+  const v=id?veh(id):null;
+  vdraft=v?Object.assign({},v):{id:uid('V'),reg:'',type:'Service Van',make:'',model:'',year:new Date().getFullYear(),fuel:'Diesel',
+    capacity:'3 crew + tools',location:'',emirates:'Dubai',driverId:null,supId:null,base:'Available',
+    insuranceExpiry:now()+300*864e5,regExpiry:now()+300*864e5,fitnessExpiry:now()+300*864e5,serviceDue:now()+60*864e5,notes:''};
+  vdraft.__edit=!!v;
+  const dstr=ts=>{const x=new Date(ts||now());return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`};
+  modal({title:v?'Edit '+v.reg:'Add vehicle',eyebrow:v?'Fleet record':'Fleet master data',wide:true,
+    body:`<div class="grid3">
+      <div class="field"><label>Registration number</label><input class="inp mono" value="${esc(vdraft.reg)}" placeholder="DXB-1234" oninput="vdraft.reg=this.value"></div>
+      <div class="field"><label>Vehicle type</label><select class="inp" onchange="vdraft.type=this.value">${opts(VTYPES,vdraft.type,'Select')}</select></div>
+      <div class="field"><label>Fuel type</label><select class="inp" onchange="vdraft.fuel=this.value">${opts(['Diesel','Petrol','Hybrid','Electric'],vdraft.fuel,'Select')}</select></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Manufacturer</label><input class="inp" value="${esc(vdraft.make)}" placeholder="Toyota" oninput="vdraft.make=this.value"></div>
+      <div class="field"><label>Model</label><input class="inp" value="${esc(vdraft.model)}" placeholder="Hiace" oninput="vdraft.model=this.value"></div>
+      <div class="field"><label>Year</label><input class="inp mono" type="number" value="${vdraft.year}" oninput="vdraft.year=Number(this.value)"></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Capacity</label><input class="inp" value="${esc(vdraft.capacity)}" oninput="vdraft.capacity=this.value"></div>
+      <div class="field"><label>Current location</label><input class="inp" list="dlAreas3" value="${esc(vdraft.location)}" oninput="vdraft.location=this.value">
+        <datalist id="dlAreas3">${AREAS.map(a=>`<option value="${esc(a)}">`).join('')}</datalist></div>
+      <div class="field"><label>Emirates</label><select class="inp" onchange="vdraft.emirates=this.value">${opts(EMIRATES,vdraft.emirates,'Select')}</select></div>
+    </div>
+    <div class="grid3">
+      <div class="field"><label>Assigned driver</label><select class="inp" onchange="vdraft.driverId=this.value||null">${opts(S.users.filter(u=>u.role==='Driver').map(u=>({v:u.id,l:u.name})),vdraft.driverId,'Unassigned')}</select></div>
+      <div class="field"><label>Assigned supervisor / team</label><select class="inp" onchange="vdraft.supId=this.value||null">${opts(S.users.filter(u=>u.role==='Supervisor').map(u=>({v:u.id,l:u.name})),vdraft.supId,'Unassigned')}</select></div>
+      <div class="field"><label>Status</label><select class="inp" onchange="vdraft.base=this.value">${opts(['Available','Maintenance','Inactive'],vdraft.base,'Select')}</select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Insurance expiry</label><input class="inp" type="date" value="${dstr(vdraft.insuranceExpiry)}" onchange="vdraft.insuranceExpiry=new Date(this.value).getTime()"></div>
+      <div class="field"><label>Registration expiry</label><input class="inp" type="date" value="${dstr(vdraft.regExpiry)}" onchange="vdraft.regExpiry=new Date(this.value).getTime()"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Fitness expiry</label><input class="inp" type="date" value="${dstr(vdraft.fitnessExpiry)}" onchange="vdraft.fitnessExpiry=new Date(this.value).getTime()"></div>
+      <div class="field"><label>Service due date</label><input class="inp" type="date" value="${dstr(vdraft.serviceDue)}" onchange="vdraft.serviceDue=new Date(this.value).getTime()"></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea class="inp" oninput="vdraft.notes=this.value">${esc(vdraft.notes)}</textarea></div>
+    <p style="color:var(--txt-3);font-size:12.5px;margin:0">Assigned and In Service are set automatically while the van is on a live request.</p>`,
+    footer:`<button class="btn l" onclick="closeModal()">Cancel</button><button class="btn btn-cool" onclick="saveVeh()">${v?'Save changes':'Add vehicle'}</button>`});
+}
+function saveVeh(){
+  if(!vdraft.reg.trim()){toast('Registration required','Enter the vehicle registration number.','err');return}
+  const edit=vdraft.__edit;delete vdraft.__edit;
+  if(edit){const i=S.vehicles.findIndex(v=>v.id===vdraft.id);S.vehicles[i]=vdraft;toast('Vehicle updated',vdraft.reg+' saved.','ok')}
+  else{S.vehicles.push(vdraft);toast('Vehicle added',vdraft.reg+' · '+vdraft.type,'ok')}
+  closeModal();render();
+}
+function viewVeh(id){
+  const v=veh(id),c=curSRVeh(id),jobs=S.requests.filter(r=>r.vehId===id);
+  const hrs=jobs.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+  modal({title:v.reg,eyebrow:`${v.make} ${v.model} · ${v.type}`,
+    body:`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">${bdg(vStatus(id))}
+        <span class="b b-idle b-sq"><i></i>${v.year}</span><span class="b b-idle b-sq"><i></i>${esc(v.fuel)}</span></div>
+      <dl class="kv" style="margin-bottom:16px">
+        <dt>Capacity</dt><dd>${esc(v.capacity)}</dd>
+        <dt>Location</dt><dd>${esc(v.location)}, ${esc(v.emirates)}</dd>
+        <dt>Driver</dt><dd>${v.driverId?esc(user(v.driverId).name):'Unassigned'}</dd>
+        <dt>Supervisor</dt><dd>${v.supId?esc(user(v.supId).name):'Unassigned'}</dd>
+        <dt>Insurance</dt><dd class="mono">${fmtDate(v.insuranceExpiry)}</dd>
+        <dt>Registration</dt><dd class="mono">${fmtDate(v.regExpiry)}</dd>
+        <dt>Fitness</dt><dd class="mono">${fmtDate(v.fitnessExpiry)}</dd>
+        <dt>Service due</dt><dd class="mono">${fmtDate(v.serviceDue)}</dd>
+        <dt>Notes</dt><dd>${esc(v.notes||'—')}</dd>
+      </dl>
+      <div class="panel" style="margin-bottom:14px"><div class="panel-t">Current assignment</div>
+        ${c?`<span class="sr-no">#${c.srNo}</span> <b>${esc(c.client)}</b> — ${esc(c.serviceType)}
+          <div style="color:var(--txt-2);font-size:12.5px;margin-top:4px">${esc(c.area)}, ${esc(c.emirates)} · supervisor ${esc(sup(c)?sup(c).name:'—')} ${c.timeIn?`· since ${fmtTime(c.timeIn)}`:''}</div>`
+        :'<span style="color:var(--txt-3);font-size:13px">Parked and available.</span>'}</div>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${statCard('Jobs attended',jobs.length,'','c')}${statCard('Working hours',hrs.toFixed(1),'','w')}
+        ${statCard('Completed',jobs.filter(r=>['Work Completed','Closed'].includes(r.status)).length,'','d')}
+      </div>`,
+    footer:`<button class="btn l" onclick="vehHistory('${v.id}')">${icon('hist',14)} Vehicle history</button>
+            <button class="btn" onclick="closeModal()">Close</button><button class="btn btn-cool" onclick="openVeh('${v.id}')">Edit vehicle</button>`});
+}
+function vehHistory(id){
+  const v=veh(id),jobs=S.requests.filter(r=>r.vehId===id).sort((a,b)=>(b.timeIn||b.reportedDate)-(a.timeIn||a.reportedDate));
+  modal({title:'Vehicle history — '+v.reg,eyebrow:`${v.make} ${v.model}`,wide:true,
+    body:jobs.length?`<div class="tbl-wrap card" style="box-shadow:none"><table>
+      <thead><tr><th>Date</th><th>SR No</th><th>Client</th><th>Area</th><th>Service</th><th>Supervisor</th><th>Driver</th><th>Time in</th><th>Time out</th><th>Hours</th><th>Status</th></tr></thead>
+      <tbody>${jobs.map(r=>`<tr><td class="mono" style="font-size:11.5px">${fmtDate(r.timeIn||r.reportedDate)}</td>
+        <td><span class="sr-no">#${r.srNo}</span></td><td>${esc(r.client)}</td><td>${esc(r.area)}</td><td>${esc(r.serviceType)}</td>
+        <td>${sup(r)?esc(sup(r).name):'—'}</td><td>${r.driverId?esc(user(r.driverId).name):'—'}</td>
+        <td class="mono">${r.timeIn?fmtTime(r.timeIn):'—'}</td><td class="mono">${r.timeOut?fmtTime(r.timeOut):'—'}</td>
+        <td class="mono">${r.hours!=null?r.hours:'—'}</td><td>${bdg(r.status)}</td></tr>`).join('')}</tbody></table></div>`
+      :`<div class="t-empty"><b>No trips recorded</b>${esc(v.reg)} has not been assigned to a service request yet.</div>`,
+    footer:`<button class="btn" onclick="closeModal()">Close</button>`});
+}
+
+/* =====================================================================
+   WORK MONITORING
+   ===================================================================== */
+function vMon(){
+  const fu=fieldUsers();
+  const free=fu.filter(u=>uStatus(u.id)==='Available');
+  const busy=fu.filter(u=>['Working','Assigned'].includes(uStatus(u.id)));
+  const off=fu.filter(u=>['On Leave','Inactive'].includes(uStatus(u.id)));
+  later(startTickers);
+  return `<div class="stat-grid" style="margin-bottom:18px">
+    ${statCard('Available crew',free.length,'Ready to dispatch','c')}
+    ${statCard('Working now',fu.filter(u=>uStatus(u.id)==='Working').length,'On site','w')}
+    ${statCard('Assigned',fu.filter(u=>uStatus(u.id)==='Assigned').length,'Allocated, not started','v')}
+    ${statCard('Unavailable',off.length,'On leave or inactive')}
+  </div>
+  <div class="sec-h"><h2>Working users</h2><span class="rule"></span><span class="eyebrow">${busy.length} engaged</span></div>
+  <div class="card"><div class="tbl-wrap"><table>
+    <thead><tr><th>Employee</th><th>Role</th><th>Current SR</th><th>Client</th><th>Location</th><th>Vehicle</th><th>Start time</th><th>Current duration</th><th>Status</th><th></th></tr></thead>
+    <tbody>${busy.length?busy.map(u=>{const c=curSR(u.id);return `<tr>
+      <td><div class="who">${av(u.name)}<div><b>${esc(u.name)}</b><small>${esc(u.empId)}</small></div></div></td>
+      <td>${esc(u.role)}</td>
+      <td><span class="sr-no">#${c.srNo}</span></td>
+      <td>${esc(c.client)}<div style="color:var(--txt-3);font-size:11.5px">${esc(c.serviceType)}</div></td>
+      <td>${esc(c.area)}, ${esc(c.emirates)}<div style="color:var(--txt-3);font-size:11.5px">${esc(c.location||'')}</div></td>
+      <td class="mono">${c.vehId?esc(veh(c.vehId).reg):'—'}</td>
+      <td class="mono">${c.timeIn?fmtTime(c.timeIn):'Not started'}</td>
+      <td>${c.timeIn?`<span class="live" data-tick="${c.timeIn}"></span>`:'—'}</td>
+      <td>${bdg(uStatus(u.id))}</td>
+      <td><button class="btn btn-sm" onclick="viewSR('${c.srNo}')">Open SR</button></td></tr>`}).join('')
+      :`<tr><td colspan="10" class="t-empty"><b>Everybody is free</b>No crew is currently engaged on a service request.</td></tr>`}</tbody>
+  </table></div></div>
+
+  <div class="sec-h"><h2>Available users</h2><span class="rule"></span><span class="eyebrow">${free.length} ready</span></div>
+  <div class="mini-cards">${free.length?free.map(u=>`<div class="mini">
+      <div class="mini-h">${av(u.name,34)}<div><b style="font-family:Archivo">${esc(u.name)}</b><div class="eyebrow">${esc(u.role)}</div></div>
+        <span style="margin-left:auto">${bdg('Available')}</span></div>
+      <dl class="kv"><dt>Emp ID</dt><dd class="mono">${esc(u.empId)}</dd>
+        <dt>Base</dt><dd>${esc(u.destination)}, ${esc(u.emirates)}</dd>
+        <dt>Vehicle</dt><dd class="mono">${u.vehId?esc(veh(u.vehId).reg):'—'}</dd>
+        <dt>Jobs done</dt><dd>${historyOf(u.id).length}</dd></dl>
+    </div>`).join('')
+    :`<div class="card"><div class="t-empty"><b>Nobody free</b>Every field employee is on a request or unavailable.</div></div>`}</div>
+
+  ${off.length?`<div class="sec-h"><h2>Unavailable</h2><span class="rule"></span></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Employee</th><th>Role</th><th>Base</th><th>Status</th></tr></thead>
+    <tbody>${off.map(u=>`<tr><td><div class="who">${av(u.name)}<b>${esc(u.name)}</b></div></td><td>${esc(u.role)}</td><td>${esc(u.destination)}</td><td>${bdg(uStatus(u.id))}</td></tr>`).join('')}</tbody>
+  </table></div></div>`:''}`;
+}
+
+function vVehMon(){
+  const g=s=>S.vehicles.filter(v=>vStatus(v.id)===s);
+  later(startTickers);
+  const grp=(title,list,note)=>`<div class="sec-h"><h2>${title}</h2><span class="rule"></span><span class="eyebrow">${list.length}</span></div>
+    ${list.length?`<div class="card"><div class="tbl-wrap"><table>
+      <thead><tr><th>Registration</th><th>Type</th><th>Current SR</th><th>Client</th><th>Driver</th><th>Supervisor</th><th>Location</th><th>Start time</th><th>Duration</th><th>Status</th></tr></thead>
+      <tbody>${list.map(v=>{const c=curSRVeh(v.id);return `<tr>
+        <td><b class="mono">${esc(v.reg)}</b></td><td>${esc(v.type)}</td>
+        <td>${c?`<span class="sr-no">#${c.srNo}</span>`:'—'}</td>
+        <td>${c?esc(c.client):'—'}</td>
+        <td>${v.driverId?esc(user(v.driverId).name):'—'}</td>
+        <td>${v.supId?esc(user(v.supId).name):'—'}</td>
+        <td>${c?esc(c.area+', '+c.emirates):esc(v.location)}</td>
+        <td class="mono">${c&&c.timeIn?fmtTime(c.timeIn):'—'}</td>
+        <td>${c&&c.timeIn?`<span class="live" data-tick="${c.timeIn}"></span>`:'—'}</td>
+        <td>${bdg(vStatus(v.id))}</td></tr>`}).join('')}</tbody></table></div></div>`
+    :`<div class="card"><div class="t-empty">${esc(note)}</div></div>`}`;
+  return `<div class="stat-grid" style="margin-bottom:6px">
+      ${statCard('Available',g('Available').length,'Parked and ready','c')}
+      ${statCard('Assigned',g('Assigned').length,'Allocated to a request','v')}
+      ${statCard('In service',g('In Service').length,'Out on a job','w')}
+      ${statCard('Maintenance',g('Maintenance').length,'Off road','h')}
+      ${statCard('Inactive',g('Inactive').length,'Not in the roster')}
+    </div>
+    ${grp('Vehicles in service',g('In Service'),'No van is on a running job.')}
+    ${grp('Assigned vehicles',g('Assigned'),'Nothing allocated yet.')}
+    ${grp('Available vehicles',g('Available'),'Every van is deployed.')}
+    ${grp('Under maintenance',g('Maintenance'),'No vehicle is at the workshop.')}`;
+}
+
+/* =====================================================================
+   DASHBOARD ACCESS
+   ===================================================================== */
+function vAccess(){
+  return `<div class="card">
+    <div class="card-h"><div><h3>Dashboard access users</h3><div class="eyebrow" style="margin-top:2px">Who can open the operations dashboard</div></div>
+      <button class="btn btn-sm btn-cool" onclick="openAccess()">${icon('plus',14)} Grant access</button></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>User</th><th>Role</th><th>Email</th><th>Access scope</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
+      <tbody>${S.dashAccess.length?S.dashAccess.map(a=>{const u=user(a.userId)||{name:'Unknown',role:'—',email:'—'};return `<tr>
+        <td><div class="who">${av(u.name)}<div><b>${esc(u.name)}</b><small>${esc(u.empId||'')}</small></div></div></td>
+        <td>${esc(u.role)}</td><td style="font-size:12.5px">${esc(u.email)}</td>
+        <td>${esc(a.scope)}</td>
+        <td><div style="display:flex;align-items:center;gap:9px">
+          <button class="switch ${a.enabled?'on':''}" role="switch" aria-checked="${a.enabled}" onclick="toggleAccess('${a.id}')"></button>
+          <span style="font-size:12.5px;color:var(--txt-2)">${a.enabled?'Enabled':'Disabled'}</span></div></td>
+        <td class="mono" style="font-size:11.5px">${fmtDT(a.lastLogin)}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="revokeAccess('${a.id}')">Remove</button></td></tr>`}).join('')
+        :`<tr><td colspan="7" class="t-empty"><b>No dashboard access granted</b>Grant access so managers can monitor operations.</td></tr>`}</tbody>
+    </table></div></div>`;
+}
+function toggleAccess(id){const a=S.dashAccess.find(x=>x.id===id);a.enabled=!a.enabled;save();render();
+  toast(a.enabled?'Access enabled':'Access disabled',(user(a.userId)||{}).name+' — '+a.scope,'warn')}
+function revokeAccess(id){const a=S.dashAccess.find(x=>x.id===id);const n=(user(a.userId)||{}).name;
+  confirmBox('Remove dashboard access?',n+' will no longer be able to open the dashboard.','Remove access','btn-danger',()=>{
+    S.dashAccess=S.dashAccess.filter(x=>x.id!==id);save();closeModal();render();toast('Access removed',n+' can no longer sign in to the dashboard.','warn')})}
+function openAccess(){
+  let pick={userId:'',scope:'Reports only'};
+  const avail=S.users.filter(u=>!S.dashAccess.some(a=>a.userId===u.id));
+  modal({title:'Grant dashboard access',eyebrow:'Access control',slim:true,
+    body:`<div class="field"><label>User</label><select class="inp" id="acU">${opts(avail.map(u=>({v:u.id,l:u.name+' — '+u.role})),'','Select user')}</select></div>
+      <div class="field"><label>Access scope</label><select class="inp" id="acS">${opts(['Full dashboard','Operations + reports','Reports only','Own team only'],'Reports only','Select')}</select></div>`,
+    footer:`<button class="btn l" onclick="closeModal()">Cancel</button><button class="btn btn-cool" onclick="saveAccess()">Grant access</button>`});
+}
+function saveAccess(){
+  const uId=$('#acU').value,scope=$('#acS').value;
+  if(!uId){toast('Select a user','Choose who should get dashboard access.','err');return}
+  S.dashAccess.push({id:uid('DA'),userId:uId,scope,enabled:true,lastLogin:null});
+  save();closeModal();render();toast('Access granted',user(uId).name+' — '+scope,'ok');
+}
+
+/* =====================================================================
+   REPORTS
+   ===================================================================== */
+let repTab='service';
+function vReports(){
+  const T=[['service','Service request report'],['employee','Employee work report'],['vehicle','Vehicle report'],['amc','AMC / Non-AMC report']];
+  return `<div class="card">
+    <div class="tabs">${T.map(t=>`<button class="tab ${repTab===t[0]?'on':''}" onclick="repTab='${t[0]}';render()">${t[1]}</button>`).join('')}</div>
+    ${repTab==='service'?repService():repTab==='employee'?repEmployee():repTab==='vehicle'?repVehicle():repAmc()}
+  </div>`;
+}
+const csvBtn=`<button class="btn btn-sm" style="margin-left:auto" onclick="toast('Export queued','A CSV export would download here. This prototype keeps the data on screen.')">${icon('dl',14)} Export</button>`;
+function repService(){
+  const f=F.sr,list=filterSR();
+  const hrs=list.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+  return `<div class="bar-tools">
+      <input class="inp" type="date" value="${f.from}" onchange="setF('sr','from',this.value)" title="From">
+      <input class="inp" type="date" value="${f.to}" onchange="setF('sr','to',this.value)" title="To">
+      <select class="inp" onchange="setF('sr','client',this.value)">${opts(CLIENTS,f.client,'All clients')}</select>
+      <select class="inp" onchange="setF('sr','em',this.value)">${opts(EMIRATES,f.em,'All emirates')}</select>
+      <select class="inp" onchange="setF('sr','amc',this.value)">${opts(['AMC','Non-AMC'],f.amc,'AMC / Non-AMC')}</select>
+      <select class="inp" onchange="setF('sr','sup',this.value)">${opts(S.users.filter(u=>u.role==='Supervisor').map(u=>({v:u.id,l:u.name})),f.sup,'All supervisors')}</select>
+      <select class="inp" onchange="setF('sr','status',this.value)">${opts(SRSTATUS,f.status,'All statuses')}</select>
+      <button class="btn btn-sm" onclick="clearF('sr')">Clear</button>${csvBtn}</div>
+    <div class="card-b">
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
+        ${statCard('Requests',list.length,'In selection','c')}
+        ${statCard('Completed',list.filter(r=>['Work Completed','Closed'].includes(r.status)).length,'','d')}
+        ${statCard('Open',list.filter(r=>['New','Allocated','Work Started'].includes(r.status)).length,'','h')}
+        ${statCard('Working hours',hrs.toFixed(1),'Recorded','w')}
+        ${statCard('Avg hours / job',list.filter(r=>r.hours).length?(hrs/list.filter(r=>r.hours).length).toFixed(2):'0','On completed jobs','v')}
+      </div>
+      ${list.length?`<div class="tbl-wrap card" style="box-shadow:none"><table>
+        <thead><tr><th>Date</th><th>SR No</th><th>Client</th><th>Area</th><th>Emirates</th><th>Service</th><th>Contract</th><th>Priority</th><th>Supervisor</th><th>Vehicle</th><th>Hours</th><th>Status</th></tr></thead>
+        <tbody>${list.map(r=>`<tr><td class="mono" style="font-size:11.5px">${fmtDate(r.reportedDate)}</td><td><span class="sr-no">#${r.srNo}</span></td>
+          <td>${esc(r.client)}</td><td>${esc(r.area)}</td><td>${esc(r.emirates)}</td><td>${esc(r.serviceType)}</td>
+          <td>${bdg(r.amc,1)}</td><td>${bdg(r.priority,1)}</td><td>${sup(r)?esc(sup(r).name):'—'}</td>
+          <td class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</td><td class="mono">${r.hours!=null?r.hours:'—'}</td><td>${bdg(r.status)}</td></tr>`).join('')}</tbody></table></div>`
+      :`<div class="t-empty"><b>Nothing in this selection</b>Widen the date range or clear the filters.</div>`}
+    </div>`;
+}
+function repEmployee(){
+  const rows=fieldUsers().map(u=>{
+    const h=historyOf(u.id);
+    return {u,total:h.length,done:h.filter(r=>['Work Completed','Closed'].includes(r.status)).length,
+      hrs:h.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0),
+      amc:h.filter(r=>r.amc==='AMC').length,non:h.filter(r=>r.amc==='Non-AMC').length};
+  }).sort((a,b)=>b.hrs-a.hrs);
+  later(()=>{
+    if(!window.Chart)return;
+    const el=document.getElementById('cEmpRep');if(!el)return;
+    charts.push(new Chart(el,{type:'bar',data:{labels:rows.map(r=>r.u.name),
+      datasets:[{label:'AMC jobs',data:rows.map(r=>r.amc),backgroundColor:'#0E8FA8',borderRadius:4,stack:'s'},
+                {label:'Non-AMC jobs',data:rows.map(r=>r.non),backgroundColor:'#5B54B8',borderRadius:4,stack:'s'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}},
+        scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}}}}}));
+  });
+  return `<div class="bar-tools"><span class="eyebrow">Jobs and hours per employee, all time</span>${csvBtn}</div>
+    <div class="card-b">
+      <div class="chart-box" style="height:270px;margin-bottom:18px"><canvas id="cEmpRep"></canvas></div>
+      <div class="tbl-wrap card" style="box-shadow:none"><table>
+        <thead><tr><th>Employee</th><th>Role</th><th>Total jobs</th><th>Completed</th><th>AMC</th><th>Non-AMC</th><th>Working hours</th><th>Avg / job</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td><div class="who">${av(r.u.name)}<div><b>${esc(r.u.name)}</b><small>${esc(r.u.empId)}</small></div></div></td>
+          <td>${esc(r.u.role)}</td><td class="mono">${r.total}</td><td class="mono">${r.done}</td>
+          <td class="mono">${r.amc}</td><td class="mono">${r.non}</td><td class="mono">${r.hrs.toFixed(1)}</td>
+          <td class="mono">${r.total?(r.hrs/r.total).toFixed(2):'0'}</td><td>${bdg(uStatus(r.u.id))}</td>
+          <td><button class="btn btn-sm" onclick="openHistory('${r.u.id}')">History</button></td></tr>`).join('')}</tbody></table></div>
+    </div>`;
+}
+function repVehicle(){
+  const rows=S.vehicles.map(v=>{const j=S.requests.filter(r=>r.vehId===v.id);
+    return {v,jobs:j.length,hrs:j.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0)}}).sort((a,b)=>b.jobs-a.jobs);
+  return `<div class="bar-tools"><span class="eyebrow">Fleet utilisation, all time</span>${csvBtn}</div>
+    <div class="card-b"><div class="tbl-wrap card" style="box-shadow:none"><table>
+      <thead><tr><th>Vehicle</th><th>Type</th><th>Driver</th><th>Jobs</th><th>Working hours</th><th>Avg / job</th><th>Location</th><th>Service due</th><th>Current status</th><th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td><b class="mono">${esc(r.v.reg)}</b><div class="eyebrow">${esc(r.v.make)} ${esc(r.v.model)}</div></td>
+        <td>${esc(r.v.type)}</td><td>${r.v.driverId?esc(user(r.v.driverId).name):'—'}</td>
+        <td class="mono">${r.jobs}</td><td class="mono">${r.hrs.toFixed(1)}</td><td class="mono">${r.jobs?(r.hrs/r.jobs).toFixed(2):'0'}</td>
+        <td>${esc(r.v.location)}</td><td class="mono" style="font-size:11.5px">${fmtDate(r.v.serviceDue)}</td>
+        <td>${bdg(vStatus(r.v.id))}</td><td><button class="btn btn-sm" onclick="vehHistory('${r.v.id}')">History</button></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+function repAmc(){
+  const byClient={};
+  S.requests.forEach(r=>{const k=r.client;byClient[k]=byClient[k]||{amc:0,non:0,hrs:0};byClient[k][r.amc==='AMC'?'amc':'non']++;byClient[k].hrs+=r.hours||0});
+  const amc=S.requests.filter(r=>r.amc==='AMC').length,non=S.requests.length-amc;
+  later(()=>{
+    if(!window.Chart)return;
+    const el=document.getElementById('cAmcRep');if(!el)return;
+    charts.push(new Chart(el,{type:'bar',data:{labels:Object.keys(byClient),
+      datasets:[{label:'AMC',data:Object.values(byClient).map(v=>v.amc),backgroundColor:'#0E8FA8',borderRadius:5},
+                {label:'Non-AMC',data:Object.values(byClient).map(v=>v.non),backgroundColor:'#5B54B8',borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}},
+        scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}}));
+  });
+  return `<div class="bar-tools"><span class="eyebrow">Contract mix by client</span>${csvBtn}</div>
+    <div class="card-b">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
+        ${statCard('AMC requests',amc,(amc/S.requests.length*100).toFixed(0)+'% of volume','c')}
+        ${statCard('Non-AMC requests',non,(non/S.requests.length*100).toFixed(0)+'% of volume','v')}
+        ${statCard('AMC hours',S.requests.filter(r=>r.amc==='AMC').reduce((a,r)=>a+(r.hours||0),0).toFixed(1),'On site','w')}
+        ${statCard('Non-AMC hours',S.requests.filter(r=>r.amc==='Non-AMC').reduce((a,r)=>a+(r.hours||0),0).toFixed(1),'Billable','h')}
+      </div>
+      <div class="chart-box" style="height:270px;margin-bottom:18px"><canvas id="cAmcRep"></canvas></div>
+      <div class="tbl-wrap card" style="box-shadow:none"><table>
+        <thead><tr><th>Client</th><th>AMC jobs</th><th>Non-AMC jobs</th><th>Total</th><th>AMC share</th><th>Working hours</th></tr></thead>
+        <tbody>${Object.entries(byClient).map(([k,v])=>`<tr><td><b>${esc(k)}</b></td><td class="mono">${v.amc}</td><td class="mono">${v.non}</td>
+          <td class="mono">${v.amc+v.non}</td><td class="mono">${((v.amc/(v.amc+v.non))*100).toFixed(0)}%</td><td class="mono">${v.hrs.toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
+    </div>`;
+}
+
+/* =====================================================================
+   NOTIFICATIONS (admin)
+   ===================================================================== */
+function notifIcon(t){
+  const m={'Work started':['warm','play'],'Work completed':['done','check'],'Service overdue':['hot','clock'],
+    'Vehicle unavailable':['hot','van'],'User unavailable':['idle','user'],'Service request registered':['cool','clip'],
+    'Follow-up flagged':['warm','flag'],'New service request assigned':['violet','send'],'Work reminder':['cool','clock']};
+  const [c,i]=m[t]||['cool','bell'];
+  const bg={cool:'var(--cool-soft)',warm:'var(--warm-soft)',hot:'var(--hot-soft)',done:'var(--done-soft)',idle:'var(--idle-soft)',violet:'var(--violet-soft)'}[c];
+  const fg={cool:'#0A6E82',warm:'#96581A',hot:'#98322B',done:'#146342',idle:'#556579',violet:'#403A96'}[c];
+  return `<span class="ic" style="background:${bg};color:${fg}">${icon(i,15)}</span>`;
+}
+function vNotifs(){
+  const list=S.notifications.filter(n=>n.audience==='admin');
+  return `<div class="card">
+    <div class="card-h"><div><h3>Operations notifications</h3><div class="eyebrow" style="margin-top:2px">${unread('admin')} unread of ${list.length}</div></div>
+      <button class="btn btn-sm" onclick="markAllRead('admin')">Mark all read</button></div>
+    ${list.length?list.map(n=>`<div class="notif ${n.read?'':'un'}" ${n.srNo?`style="cursor:pointer" onclick="readNotif('${n.id}');viewSR('${n.srNo}')"`:`onclick="readNotif('${n.id}')"`}>
+      ${notifIcon(n.title)}
+      <div style="flex:1"><b>${esc(n.title)}</b><p>${esc(n.body)}</p></div>
+      <time>${ago(n.t)}</time></div>`).join('')
+    :`<div class="t-empty"><b>No notifications</b>Alerts appear here when work starts, completes or runs late.</div>`}
+  </div>`;
+}
+function readNotif(id){const n=S.notifications.find(x=>x.id===id);if(n)n.read=true;save();buildNav();if(page==='notifications')$('#view').innerHTML=vNotifs()}
+function markAllRead(a){S.notifications.filter(n=>n.audience===a).forEach(n=>n.read=true);save();
+  if(a==='admin'){render()}else{phRender()}}
+
+/* =====================================================================
+   MOBILE APPS — admin monitor + supervisor field app
+   ===================================================================== */
+let phMode='sup',phTab='home',phSupId='U2',phSheet=null;
+function openPhone(mode){
+  phMode=mode;phTab='home';phSheet=null;
+  if(mode==='sup'){
+    const latest=S.requests.filter(r=>r.status==='Allocated'&&r.supId)
+      .sort((a,b)=>(b.timeline[b.timeline.length-1]||{}).t-(a.timeline[a.timeline.length-1]||{}).t)[0];
+    const withJob=S.users.filter(u=>u.role==='Supervisor'&&S.requests.some(r=>ACTIVE.includes(r.status)&&r.supId===u.id));
+    phSupId=latest?latest.supId:(withJob[0]||S.users.find(u=>u.role==='Supervisor')).id;
+  }
+  $('#phoneVeil').classList.add('on');
+  phRender();
+}
+function closePhone(){$('#phoneVeil').classList.remove('on');phSheet=null;render()}
+function phGo(t){phTab=t;phSheet=null;phRender()}
+const supUnread=()=>S.notifications.filter(n=>n.audience==='supervisor'&&n.userId===phSupId&&!n.read).length;
+
+function phRender(){
+  const tipEl=$('#phoneTip');
+  if(phMode==='sup'){
+    const u=user(phSupId);
+    tipEl.innerHTML=`<h4>Supervisor app</h4><p style="margin:0 0 12px">Signed in as ${esc(u.name)}. Allocated jobs arrive as notifications; start and complete them from here and the admin dashboard follows instantly.</p>
+      <ul><li>Open <b>Allocated</b> to see assigned work</li><li>Tap a job → <b>Start work</b> records time in</li><li><b>Complete work</b> captures remarks and hours</li></ul>
+      <div class="field"><label style="color:rgba(255,255,255,.5)">Switch supervisor</label>
+      <select class="inp" onchange="phSupId=this.value;phTab='home';phRender()">${opts(S.users.filter(x=>x.role==='Supervisor').map(x=>({v:x.id,l:x.name})),phSupId,'Select')}</select></div>`;
+  }else{
+    tipEl.innerHTML=`<h4>Admin app</h4><p style="margin:0 0 12px">The same operation, sized for a phone. Live counters, request queues by status, crew availability and fleet deployment.</p>
+      <ul><li><b>Home</b> — today at a glance</li><li><b>Jobs</b> — queues by status</li><li><b>Team</b> and <b>Fleet</b> — who and what is free</li></ul>`;
+  }
+  const d=new Date();$('#phClock').textContent=`${pad(d.getHours()%12||12)}:${pad(d.getMinutes())}`;
+  $('#phTop').innerHTML=phTop();
+  $('#phBody').innerHTML=phMode==='sup'?phSup():phAdmin();
+  $('#phNav').innerHTML=phNav();
+  $('#phOverlay').innerHTML=phSheet?phSheetHTML():'';
+  startTickers();
+}
+function phTop(){
+  if(phMode==='sup'){
+    const u=user(phSupId);
+    return `${av(u.name,36)}<div><small>Supervisor</small><h3>${esc(u.name.split(' ')[0])}</h3></div>
+      <div class="r">${bdg(uStatus(phSupId))}</div>`;
+  }
+  return `<div class="brand-mark" style="width:34px;height:34px;border-radius:10px">${icon('dash',16)}</div>
+    <div><small>CoolChain FM</small><h3>Operations</h3></div>
+    <div class="r"><span class="b b-cool"><i></i>Live</span></div>`;
+}
+function phNav(){
+  const items=phMode==='sup'
+    ?[['home','Home','home'],['allocated','Allocated','clip'],['completed','Completed','check'],['notif','Alerts','bell'],['profile','Profile','user']]
+    :[['home','Home','home'],['requests','Jobs','clip'],['users','Team','users'],['vehicles','Fleet','van'],['notif','Alerts','bell'],['profile','Profile','user']];
+  const n=phMode==='sup'?supUnread():unread('admin');
+  return items.map(i=>`<button class="${phTab===i[0]?'on':''}" onclick="phGo('${i[0]}')">${icon(i[2],19)}<span>${i[1]}</span>${i[0]==='notif'&&n?`<span class="n">${n}</span>`:''}</button>`).join('');
+}
+
+/* ---------- supervisor screens ---------- */
+function supJobs(status){return S.requests.filter(r=>r.supId===phSupId&&(status?(Array.isArray(status)?status.includes(r.status):r.status===status):true))}
+function phSup(){
+  const alloc=supJobs('Allocated'),run=supJobs('Work Started'),
+        done=supJobs(['Work Completed','Closed']).sort((a,b)=>(b.timeOut||0)-(a.timeOut||0));
+  if(phTab==='home'){
+    const cur=run[0];
+    return `<div class="ph-stat">
+        <div><b>${alloc.length}</b><small>Allocated</small></div>
+        <div><b style="color:var(--warm)">${run.length}</b><small>Started</small></div>
+        <div><b style="color:var(--done)">${done.filter(r=>isToday(r.timeOut)).length}</b><small>Completed</small></div>
+      </div>
+      ${cur?`<div class="hero-job">
+        <div class="eyebrow" style="color:rgba(255,255,255,.5)">Work in progress · #${cur.srNo}</div>
+        <h4>${esc(cur.client)}</h4>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.7)">${esc(cur.area)}, ${esc(cur.emirates)} — ${esc(cur.equipment)} · ${esc(cur.serviceType)}</div>
+        <div class="timer live" data-tick="${cur.timeIn}" style="color:#F0B45F">${dur(now()-cur.timeIn)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);font-family:'IBM Plex Mono'">Started ${fmtTime(cur.timeIn)}</div>
+        <div class="team">
+          <div><span>Supervisor</span>${esc(user(cur.supId).name)}</div>
+          <div><span>Vehicle</span><span class="mono">${cur.vehId?esc(veh(cur.vehId).reg):'—'}</span></div>
+          <div><span>Technicians</span>${(cur.techIds||[]).map(i=>esc(user(i).name)).join(', ')||'—'}</div>
+          <div><span>Driver</span>${cur.driverId?esc(user(cur.driverId).name):'—'}</div>
+        </div>
+        <button class="btn btn-w btn-done" style="margin-top:13px" onclick="openComplete('${cur.srNo}','sup')">${icon('check',14)} Complete work &amp; add remarks</button>
+        <button class="btn btn-w" style="margin-top:7px;background:#fff;border-color:#fff;color:var(--ink)" onclick="phOpen('${cur.srNo}')">View details</button>
+      </div>`:`<div class="job" style="text-align:center;padding:22px 14px">
+        <div style="color:var(--txt-3);margin-bottom:6px">${icon('wrench',26)}</div>
+        <b style="font-family:Archivo;font-size:15px">No job running</b>
+        <p style="color:var(--txt-2);font-size:12.5px;margin:5px 0 0">Open an allocated request and start work to log time in.</p></div>`}
+      <div class="ph-sec">Allocated to you (${alloc.length})</div>
+      ${alloc.length?alloc.map(jobCard).join(''):`<div class="job" style="color:var(--txt-3);font-size:12.5px">Nothing waiting. New assignments arrive as notifications.</div>`}`;
+  }
+  if(phTab==='allocated'){
+    return `<div class="ph-sec">Allocated jobs (${alloc.length})</div>
+      ${alloc.length?alloc.map(jobCard).join(''):`<div class="job" style="color:var(--txt-3);font-size:12.5px">No allocated jobs right now.</div>`}
+      ${run.length?`<div class="ph-sec">In progress (${run.length})</div>${run.map(jobCard).join('')}`:''}`;
+  }
+  if(phTab==='completed'){
+    const hrs=done.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+    return `<div class="ph-stat"><div><b>${done.length}</b><small>Jobs</small></div>
+        <div><b>${hrs.toFixed(1)}</b><small>Hours</small></div>
+        <div><b>${done.filter(r=>r.amc==='AMC').length}</b><small>AMC</small></div></div>
+      <div class="ph-sec">Work history</div>
+      ${done.length?done.map(r=>`<div class="job" onclick="phOpen('${r.srNo}')">
+        <div class="job-h"><span class="sr-no">#${r.srNo}</span>${bdg(r.status)}${bdg(r.amc,1)}</div>
+        <h4>${esc(r.client)}</h4>
+        <p class="loc">${icon('pin',13)} ${esc(r.area)}, ${esc(r.emirates)}</p>
+        <div class="meta">
+          <div><span>Date</span>${fmtDate(r.timeIn||r.reportedDate)}</div>
+          <div><span>Hours</span><span class="mono">${r.hours!=null?r.hours+' h':'—'}</span></div>
+          <div><span>Time in</span><span class="mono">${fmtTime(r.timeIn)}</span></div>
+          <div><span>Time out</span><span class="mono">${r.timeOut?fmtTime(r.timeOut):'—'}</span></div>
+        </div>
+        ${r.remarks?`<div class="desc">${esc(r.remarks)}</div>`:''}</div>`).join('')
+      :`<div class="job" style="color:var(--txt-3);font-size:12.5px">No completed jobs yet.</div>`}`;
+  }
+  if(phTab==='notif'){
+    const list=S.notifications.filter(n=>n.audience==='supervisor'&&n.userId===phSupId);
+    return `<div style="display:flex;align-items:center;margin-bottom:8px"><div class="ph-sec" style="margin:0">Notifications</div>
+      ${list.length?`<button class="btn btn-sm" style="margin-left:auto" onclick="markAllRead('supervisor')">Mark read</button>`:''}</div>
+      <div class="card" style="overflow:hidden">${list.length?list.map(n=>`<div class="notif ${n.read?'':'un'}" ${n.srNo?`onclick="readNotifSup('${n.id}');phOpen('${n.srNo}')"`:`onclick="readNotifSup('${n.id}')"`}>
+        ${notifIcon(n.title)}<div style="flex:1;min-width:0"><b>${esc(n.title)}</b><p>${esc(n.body)}</p></div><time>${ago(n.t)}</time></div>`).join('')
+      :`<div class="t-empty" style="padding:30px 16px"><b>All clear</b>Assignment alerts land here.</div>`}</div>`;
+  }
+  const u=user(phSupId),all=supJobs(),hrs=all.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
+  return `<div class="job" style="text-align:center;padding:20px">
+      ${av(u.name,64)}
+      <h4 style="margin:12px 0 2px;font-size:18px">${esc(u.name)}</h4>
+      <div class="eyebrow">${esc(u.role)} · ${esc(u.empId)}</div>
+      <div style="margin-top:10px">${bdg(uStatus(u.id))}</div></div>
+    <div class="ph-stat"><div><b>${all.length}</b><small>Total SR</small></div>
+      <div><b>${all.filter(r=>['Work Completed','Closed'].includes(r.status)).length}</b><small>Done</small></div>
+      <div><b>${hrs.toFixed(0)}</b><small>Hours</small></div></div>
+    <div class="job"><div class="ph-sec" style="margin:0 0 9px">Details</div>
+      <dl class="kv" style="grid-template-columns:96px 1fr">
+        <dt>Mobile</dt><dd class="mono">${esc(u.mobile)}</dd>
+        <dt>Email</dt><dd style="font-size:12px">${esc(u.email)}</dd>
+        <dt>Destination</dt><dd>${esc(u.destination)}</dd>
+        <dt>Emirates</dt><dd>${esc(u.emirates)}</dd>
+        <dt>Vehicle</dt><dd class="mono">${u.vehId?esc(veh(u.vehId).reg):'—'}</dd>
+        <dt>Joined</dt><dd>${fmtDate(u.joinDate)}</dd></dl></div>
+    <div class="job"><div class="ph-sec" style="margin:0 0 9px">My team</div>
+      ${S.users.filter(x=>x.supId===u.id).map(x=>`<div class="res">${av(x.name,24)}<div><b>${esc(x.name)}</b><div class="eyebrow">${esc(x.role)}</div></div><span class="st">${bdg(uStatus(x.id))}</span></div>`).join('')||'<span style="color:var(--txt-3);font-size:12.5px">No crew assigned.</span>'}</div>
+    <button class="btn btn-w btn-cool" style="margin-bottom:8px" onclick="openPhone('admin')">${icon('dash',14)} Switch to admin app</button>
+    <button class="btn btn-w" onclick="closePhone()">Sign out of app</button>`;
+}
+function readNotifSup(id){const n=S.notifications.find(x=>x.id===id);if(n)n.read=true;save()}
+function jobCard(r){
+  return `<div class="job">
+    <div class="job-h"><span class="sr-no">#${r.srNo}</span>${bdg(r.status)}${bdg(r.priority,1)}${bdg(r.amc,1)}</div>
+    <h4>${esc(r.client)}</h4>
+    <p class="loc">${icon('pin',13)} ${esc(r.area)}, ${esc(r.emirates)} · ${esc(r.location||'')}</p>
+    <div class="desc">${esc(r.description||r.items.map(i=>i.work).join('; '))}</div>
+    <div class="meta">
+      <div><span>Equipment</span>${esc(r.equipment)}</div>
+      <div><span>Service</span>${esc(r.serviceType)}</div>
+      <div><span>Fix by</span>${fmtDate(r.expectedFix)}</div>
+      <div><span>Vehicle</span><span class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</span></div>
+      <div style="grid-column:span 2"><span>Team</span>${esc(teamNames(r).join(' · '))}</div>
+    </div>
+    ${phActions(r,true)}
+    <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:7px" onclick="phOpen('${r.srNo}')">View details</button>
+  </div>`;
+}
+function phOpen(srNo){phSheet=srNo;phRender()}
+function phCloseSheet(){phSheet=null;phRender()}
+function phSheetHTML(){
+  const r=sr(phSheet);if(!r)return '';
+  return `<div class="ph-mask" onclick="phCloseSheet()"></div>
+  <div class="sheet"><div class="grab"></div>
+    <div class="sheet-h"><div><div class="eyebrow">SR #${r.srNo}${r.projectNo?' · '+esc(r.projectNo):''}</div><h4>${esc(r.client)}</h4></div>
+      <button class="btn btn-icon" style="margin-left:auto" onclick="phCloseSheet()">${icon('x',14)}</button></div>
+    <div class="sheet-b">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px">${bdg(r.status)}${bdg(r.priority,1)}${bdg(r.amc,1)}</div>
+      <p class="loc" style="margin-bottom:12px">${icon('pin',13)} ${esc(r.area)}, ${esc(r.emirates)} · ${esc(r.location||'')}</p>
+      <div class="ph-sec">Work required</div>
+      <div class="desc" style="margin-bottom:14px">${esc(r.description||'—')}</div>
+      <div class="ph-sec">Service items (${r.items.length})</div>
+      ${r.items.map((i,n)=>`<div class="res" style="align-items:flex-start"><span class="mono" style="color:var(--txt-3)">${n+1}</span>
+        <div><b>${esc(i.work)}</b><div style="color:var(--txt-3);font-size:11.5px">${esc(i.floor||'—')} · ${esc(i.equipment)} · qty ${i.qty}</div></div></div>`).join('')}
+      <div class="ph-sec">Team &amp; vehicle</div>
+      ${teamIds(r).map(i=>`<div class="res">${av(user(i).name,22)}<div><b>${esc(user(i).name)}</b><div class="eyebrow">${esc(user(i).role)}</div></div><span class="st">${bdg(uStatus(i))}</span></div>`).join('')}
+      ${r.vehId?`<div class="res"><span class="mono" style="font-weight:600">${esc(veh(r.vehId).reg)}</span><span style="font-size:11.5px;color:var(--txt-3)">${esc(veh(r.vehId).type)}</span><span class="st">${bdg(vStatus(r.vehId))}</span></div>`:''}
+      <div class="ph-sec">Time</div>
+      <dl class="kv" style="grid-template-columns:96px 1fr">
+        <dt>Scheduled</dt><dd>${fmtDate(r.scheduledDate)}</dd>
+        <dt>Fix by</dt><dd>${fmtDate(r.expectedFix)}</dd>
+        <dt>Time in</dt><dd class="mono">${r.timeIn?fmtTime(r.timeIn):'—'}</dd>
+        <dt>Time out</dt><dd class="mono">${r.timeOut?fmtTime(r.timeOut):'—'}</dd>
+        <dt>Hours</dt><dd class="mono">${r.hours!=null?r.hours+' h':(r.timeIn?`<span class="live" data-tick="${r.timeIn}"></span>`:'—')}</dd></dl>
+      ${r.workPerformed?`<div class="ph-sec">Completion</div><div class="desc">${esc(r.workPerformed)}${r.remarks?'\n\n'+esc(r.remarks):''}</div>`:''}
+      <div class="ph-sec">Timeline</div>
+      <ul class="tl">${r.timeline.slice().sort((a,b)=>a.t-b.t).map((t,i,a)=>`<li class="${i===a.length-1?'acc':''}"><time>${fmtTime(t.t)}</time><b>${esc(t.e)}</b><p>${esc(t.by||'')}</p></li>`).join('')}</ul>
+    </div>
+    <div class="sheet-f">
+      ${phActions(r)}
+      <button class="btn" onclick="phCloseSheet()">Close</button>
+    </div></div>`;
+}
+/* status-driven actions — available in the supervisor app and the admin app alike */
+function phActions(r,compact){
+  const f=phMode==='sup'?'sup':'admin',w=compact?' style="width:100%;justify-content:center;margin-top:7px"':'',a=[];
+  if(r.status==='New'&&phMode==='admin')a.push(`<button class="btn btn-cool"${w} onclick="event.stopPropagation();openAllocate('${r.srNo}')">${icon('users',14)} Allocate team &amp; vehicle</button>`);
+  if(r.status==='Allocated')a.push(`<button class="btn btn-warm"${w} onclick="event.stopPropagation();startWork('${r.srNo}','${f}')">${icon('play',14)} Start work</button>`);
+  if(r.status==='Work Started')a.push(`<button class="btn btn-done"${w} onclick="event.stopPropagation();openComplete('${r.srNo}','${f}')">${icon('check',14)} Complete work &amp; add remarks</button>`);
+  if(r.status==='Work Completed'&&phMode==='admin')a.push(`<button class="btn btn-p"${w} onclick="event.stopPropagation();closeSR('${r.srNo}')">${icon('check',14)} Review &amp; close</button>`);
+  return a.join('');
+}
+
+/* ---------- admin mobile screens ---------- */
+function phAdmin(){
+  const c=counts(),fu=fieldUsers();
+  if(phTab==='home'){
+    const live=S.requests.filter(r=>r.status==='Work Started');
+    return `<div class="ph-stat">
+        <div><b>${c.today}</b><small>Today</small></div>
+        <div><b style="color:var(--warm)">${c.tStart+c.tAlloc}</b><small>Active</small></div>
+        <div><b style="color:var(--done)">${c.tDone}</b><small>Completed</small></div>
+      </div>
+      <div class="ph-stat">
+        <div><b style="color:var(--cool)">${c.uFree}</b><small>Free crew</small></div>
+        <div><b style="color:var(--warm)">${c.uWork}</b><small>Working</small></div>
+        <div><b>${c.vFree}</b><small>Free vans</small></div>
+      </div>
+      <div class="ph-sec">Running now (${live.length})</div>
+      ${live.length?live.map(r=>`<div class="job" onclick="phOpen('${r.srNo}')">
+        <div class="job-h"><span class="sr-no">#${r.srNo}</span>${bdg(r.status)}<span class="live mono" style="margin-left:auto" data-tick="${r.timeIn}"></span></div>
+        <h4>${esc(r.client)}</h4><p class="loc">${icon('pin',13)} ${esc(r.area)} · ${esc(r.serviceType)}</p>
+        <div class="meta"><div><span>Supervisor</span>${esc(sup(r)?sup(r).name:'—')}</div>
+          <div><span>Vehicle</span><span class="mono">${r.vehId?esc(veh(r.vehId).reg):'—'}</span></div></div>
+        ${phActions(r,true)}</div>`).join('')
+      :`<div class="job" style="color:var(--txt-3);font-size:12.5px">No job in progress.</div>`}
+      <div class="ph-sec">Awaiting allocation (${c.tPend})</div>
+      ${S.requests.filter(r=>r.status==='New').map(r=>`<div class="job" onclick="phOpen('${r.srNo}')">
+        <div class="job-h"><span class="sr-no">#${r.srNo}</span>${bdg(r.priority,1)}</div>
+        <h4>${esc(r.client)}</h4><p class="loc" style="margin:0 0 7px">${icon('pin',13)} ${esc(r.area)} · ${esc(r.serviceType)}</p>
+        ${phActions(r,true)}</div>`).join('')
+      ||`<div class="job" style="color:var(--txt-3);font-size:12.5px">Queue is clear.</div>`}`;
+  }
+  if(phTab==='requests'){
+    const g=s=>S.requests.filter(r=>r.status===s);
+    return ['New','Allocated','Work Started','Work Completed'].map(s=>`
+      <div class="ph-sec">${s} (${g(s).length})</div>
+      ${g(s).length?g(s).slice(0,6).map(r=>`<div class="job" onclick="phOpen('${r.srNo}')">
+        <div class="job-h"><span class="sr-no">#${r.srNo}</span>${bdg(r.priority,1)}${bdg(r.amc,1)}</div>
+        <h4>${esc(r.client)}</h4><p class="loc" style="margin:0 0 7px">${icon('pin',13)} ${esc(r.area)}, ${esc(r.emirates)}</p>
+        <div class="meta" style="margin:0"><div><span>Service</span>${esc(r.serviceType)}</div>
+          <div><span>Supervisor</span>${esc(sup(r)?sup(r).name:'—')}</div></div>
+        ${r.timeIn?`<div class="meta" style="margin:7px 0 0"><div><span>Time in</span><span class="mono">${fmtTime(r.timeIn)}</span></div>
+          <div><span>${r.hours!=null?'Hours':'Running'}</span><span class="mono">${r.hours!=null?r.hours+' h':`<span class="live" data-tick="${r.timeIn}"></span>`}</span></div></div>`:''}
+        ${r.remarks?`<div class="desc" style="margin-top:8px">${esc(r.remarks)}</div>`:''}
+        ${phActions(r,true)}</div>`).join('')
+      :`<div class="job" style="color:var(--txt-3);font-size:12.5px">None.</div>`}`).join('');
+  }
+  if(phTab==='users'){
+    const free=fu.filter(u=>uStatus(u.id)==='Available'),busy=fu.filter(u=>['Working','Assigned'].includes(uStatus(u.id)));
+    const row=u=>{const c=curSR(u.id);return `<div class="job" style="padding:11px">
+      <div class="mini-h" style="margin:0">${av(u.name,32)}<div><b style="font-family:Archivo">${esc(u.name)}</b><div class="eyebrow">${esc(u.role)}</div></div>
+        <span style="margin-left:auto">${bdg(uStatus(u.id))}</span></div>
+      ${c?`<div class="meta" style="margin:9px 0 0"><div><span>Current SR</span>#${c.srNo} ${esc(c.client)}</div>
+        <div><span>Since</span><span class="mono">${c.timeIn?fmtTime(c.timeIn):'—'}</span></div></div>`:''}</div>`};
+    return `<div class="ph-sec">Working (${busy.length})</div>${busy.map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">Nobody engaged.</div>`}
+      <div class="ph-sec">Available (${free.length})</div>${free.map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">Nobody free.</div>`}`;
+  }
+  if(phTab==='vehicles'){
+    const row=v=>{const c=curSRVeh(v.id);return `<div class="job" style="padding:11px">
+      <div class="job-h" style="margin:0"><b class="mono" style="font-size:14px">${esc(v.reg)}</b>${bdg(vStatus(v.id))}</div>
+      <div class="meta" style="margin:9px 0 0">
+        <div><span>Type</span>${esc(v.type)}</div><div><span>Driver</span>${v.driverId?esc(user(v.driverId).name):'—'}</div>
+        ${c?`<div><span>Current SR</span>#${c.srNo}</div><div><span>Client</span>${esc(c.client)}</div>`:`<div><span>Location</span>${esc(v.location)}</div>`}
+      </div></div>`};
+    const g=s=>S.vehicles.filter(v=>vStatus(v.id)===s);
+    return `<div class="ph-sec">In service (${g('In Service').length})</div>${g('In Service').map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">None out.</div>`}
+      <div class="ph-sec">Assigned (${g('Assigned').length})</div>${g('Assigned').map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">None.</div>`}
+      <div class="ph-sec">Available (${g('Available').length})</div>${g('Available').map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">None free.</div>`}
+      <div class="ph-sec">Maintenance (${g('Maintenance').length})</div>${g('Maintenance').map(row).join('')||`<div class="job" style="color:var(--txt-3);font-size:12.5px">None.</div>`}`;
+  }
+  if(phTab==='notif'){
+    const list=S.notifications.filter(n=>n.audience==='admin');
+    return `<div style="display:flex;align-items:center;margin-bottom:8px"><div class="ph-sec" style="margin:0">Alerts</div>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="markAllRead('admin');phRender()">Mark read</button></div>
+      <div class="card" style="overflow:hidden">${list.map(n=>`<div class="notif ${n.read?'':'un'}" ${n.srNo?`onclick="readNotif('${n.id}');phOpen('${n.srNo}')"`:''}>
+        ${notifIcon(n.title)}<div style="flex:1;min-width:0"><b>${esc(n.title)}</b><p>${esc(n.body)}</p></div><time>${ago(n.t)}</time></div>`).join('')||`<div class="t-empty" style="padding:30px"><b>All clear</b>No alerts.</div>`}</div>`;
+  }
+  return `<div class="job" style="text-align:center;padding:20px">${av('System Administrator',64)}
+      <h4 style="margin:12px 0 2px;font-size:18px">System Administrator</h4><div class="eyebrow">Administrator · EMP-001</div></div>
+    <div class="ph-stat"><div><b>${S.requests.length}</b><small>Requests</small></div><div><b>${S.users.length}</b><small>Users</small></div><div><b>${S.vehicles.length}</b><small>Vehicles</small></div></div>
+    <div class="job"><div class="ph-sec" style="margin:0 0 9px">Operation</div>
+      <dl class="kv" style="grid-template-columns:110px 1fr">
+        <dt>Company</dt><dd>CoolChain FM</dd><dt>Coverage</dt><dd>Dubai, Sharjah, Ajman</dd>
+        <dt>Contracts</dt><dd>${counts().amc} AMC · ${counts().nonamc} Non-AMC</dd>
+        <dt>Open jobs</dt><dd>${counts().open}</dd></dl></div>
+    <button class="btn btn-w btn-cool" style="margin-bottom:8px" onclick="openPhone('sup')">${icon('user',14)} Switch to supervisor field app</button>
+    <button class="btn btn-w" onclick="closePhone()">Back to web portal</button>`;
+}
+
+/* =====================================================================
+   LOGIN / BOOT
+   ===================================================================== */
+function doLogin(){
+  const u=$('#u').value.trim().toLowerCase(),p=$('#p').value;
+  const e=$('#lgErr');
+  if(!u||!p){e.textContent='Enter both a username and password.';e.style.display='block';return}
+  if(u!=='admin'||p!=='admin'){
+    e.textContent='Those credentials are not recognised. Use admin / admin for this demo.';e.style.display='block';
+    $('#p').value='';$('#p').focus();return
+  }
+  e.style.display='none';
+  if($('#rem').checked)store.set(KEY+'.session','1');
+  enterApp();
+  toast('Signed in','Welcome back — '+counts().open+' open service requests today.','ok');
+}
+function enterApp(){
+  $('#login').style.display='none';
+  $('#app').classList.add('on');
+  page='dashboard';render();
+}
+function logout(){
+  store.del(KEY+'.session');
+  $('#app').classList.remove('on');$('#login').style.display='grid';
+  $('#u').value='';$('#p').value='';
+  toast('Signed out','Demo data is kept so you can pick up where you left off.');
+}
+function tickClock(){
+  const d=new Date();
+  const el=$('#clock');
+  if(el)el.textContent=`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]} ${pad(d.getDate())} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} · ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/* ---------- boot ---------- */
+load();
+$('#lgSR').textContent=counts().open;
+$('#lgCrew').textContent=fieldUsers().length;
+$('#lgVeh').textContent=S.vehicles.length;
+$('#u').addEventListener('keydown',e=>{if(e.key==='Enter')$('#p').focus()});
+$('#p').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+tickClock();setInterval(tickClock,1000);
+setInterval(()=>{if($('#phoneVeil').classList.contains('on')){const d=new Date();$('#phClock').textContent=`${pad(d.getHours()%12||12)}:${pad(d.getMinutes())}`}},20000);
+if(store.get(KEY+'.session')==='1'){$('#rem').checked=true;$('#u').value='admin';enterApp()}
+
+/* reset hook for the demo */
+window.addEventListener('keydown',e=>{if(e.altKey&&e.key.toLowerCase()==='r'){resetAll()}});
+</script>
+<div style="position:fixed;left:12px;bottom:12px;z-index:50">
+  <button class="btn btn-sm" style="opacity:.75" onclick="resetAll()" title="Restore the sample data (Alt+R)">Reset demo data</button>
+</div>
+</body>
+</html>

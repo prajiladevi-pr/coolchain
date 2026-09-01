@@ -412,9 +412,6 @@ td .acts{display:flex;gap:5px}
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
-      <button class="btn btn-w" style="margin-bottom:9px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:#fff" onclick="openPhone('admin')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg> Open App
-      </button>
       <div class="side-user">
         <div class="avatar" style="background:linear-gradient(140deg,#17B7D4,#5B54B8)">AD</div>
         <div style="min-width:0"><b>System Administrator</b><small>Administrator</small></div>
@@ -542,6 +539,38 @@ function toast(title,msg,kind){
   setTimeout(()=>{el.style.transition='.3s';el.style.opacity=0;el.style.transform='translateX(24px)';setTimeout(()=>el.remove(),320)},4200);
 }
 
+function exportTableToExcel(tableId, filename){
+  let tbl = typeof tableId === 'string' ? document.getElementById(tableId) : tableId;
+  if(!tbl) { toast('Export failed', 'Table element not found', 'err'); return; }
+  const tableElem = tbl.tagName === 'TABLE' ? tbl : tbl.querySelector('table');
+  if(!tableElem) { toast('Export failed', 'No table data found to export', 'err'); return; }
+  
+  const rows = [];
+  tableElem.querySelectorAll('tr').forEach(tr => {
+    const row = [];
+    const cells = tr.querySelectorAll('th, td');
+    cells.forEach((td, idx) => {
+      const ths = tableElem.querySelectorAll('th');
+      const headerText = (ths[idx] ? ths[idx].innerText : '').trim().toLowerCase();
+      if(headerText === 'actions' || headerText === '') return;
+      
+      let text = td.innerText.replace(/\n+/g, ' ').replace(/"/g, '""').trim();
+      row.push('"' + text + '"');
+    });
+    if(row.length) rows.push(row.join(','));
+  });
+
+  if(!rows.length) { toast('Export failed', 'No rows to export', 'err'); return; }
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(rows.join('\n'));
+  const link = document.createElement('a');
+  link.setAttribute('href', csvContent);
+  link.setAttribute('download', (filename || 'Export') + '_' + new Date().toISOString().slice(0,10) + '.csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  toast('Export successful', (filename || 'Data') + ' exported to Excel.', 'ok');
+}
+
 /* ---------- reference lists ---------- */
 const ROLES=['Administrator','Dashboard Access User','Supervisor','Technical Staff','Driver'];
 const USTATUS=['Available','Working','Assigned','On Leave','Inactive'];
@@ -566,29 +595,29 @@ const bdg=(s,sq)=>s?`<span class="b ${badgeFor(s)}${sq?' b-sq':''}"><i></i>${esc
    SEED DATA — terminology and examples follow the July HVAC service report
    ===================================================================== */
 function seed(){
-  const U=(id,name,empId,role,area,em,mob,base,supId,vehId,join)=>({
+  const U=(id,name,empId,role,area,em,mob,base,supId,vehId,join,hourlyRate=null)=>({
     id,name,empId,role,destination:area,emirates:em,mobile:mob,
     email:name.toLowerCase().replace(/[^a-z]+/g,'.')+'@coolchainfm.ae',
-    address:area+', '+em,joinDate:join,base,supId:supId||null,vehId:vehId||null
+    address:area+', '+em,joinDate:join,base,supId:supId||null,vehId:vehId||null,hourlyRate:hourlyRate||null
   });
   const users=[
-    U('U1','System Administrator','EMP-001','Administrator','Head Office','Dubai','+971 50 111 0001','Available',null,null,D(2021,3,1)),
-    U('U2','Ismail','EMP-014','Supervisor','Nad Al Hamar','Dubai','+971 50 222 4410','Available',null,'V1',D(2021,6,14)),
-    U('U3','Arif','EMP-018','Supervisor','Ajman Industrial 1','Ajman','+971 55 331 7702','Available',null,'V3',D(2022,1,9)),
-    U('U4','Rahul','EMP-021','Supervisor','Jabel Ali','Dubai','+971 52 448 1190','Available',null,'V2',D(2022,4,3)),
-    U('U5','Vinod Kumar','EMP-026','Supervisor','King Faisal','Sharjah','+971 56 770 3325','Available',null,'V4',D(2023,2,20)),
-    U('U6','Aravinthan','EMP-032','Technical Staff','Nad Al Hamar','Dubai','+971 55 902 1174','Available','U2','V1',D(2022,8,11)),
-    U('U7','Deepu','EMP-035','Technical Staff','Nad Al Hamar','Dubai','+971 50 613 8890','Available','U2','V1',D(2022,9,5)),
-    U('U8','Arun','EMP-039','Technical Staff','Jabel Ali','Dubai','+971 54 220 6641','Available','U4','V2',D(2023,1,16)),
-    U('U9','Vishnu','EMP-041','Technical Staff','Ajman Industrial 1','Ajman','+971 56 118 2237','Available','U3','V3',D(2023,3,27)),
-    U('U10','Sajeev','EMP-044','Technical Staff','King Faisal','Sharjah','+971 52 907 4416','Available','U5','V4',D(2023,7,2)),
-    U('U11','Rasheed','EMP-047','Technical Staff','Al Nahda-2','Dubai','+971 50 388 5520','On Leave','U4',null,D(2024,2,12)),
-    U('U12','Suthaharan','EMP-052','Driver','Nad Al Hamar','Dubai','+971 55 470 9931','Available','U2','V1',D(2021,11,8)),
-    U('U13','Anil Joseph','EMP-055','Driver','Jabel Ali','Dubai','+971 50 226 7714','Available','U4','V2',D(2022,5,30)),
-    U('U14','Mujeeb Rahman','EMP-058','Driver','Ajman Industrial 1','Ajman','+971 56 904 3382','Available','U3','V3',D(2023,6,18)),
-    U('U15','Faisal Ahmed','EMP-006','Dashboard Access User','Head Office','Dubai','+971 50 700 1123','Available',null,null,D(2021,9,1)),
-    U('U16','Priya Nair','EMP-009','Dashboard Access User','Head Office','Dubai','+971 55 640 2288','Available',null,null,D(2022,2,15)),
-    U('U17','Mohammed Salih','EMP-061','Driver','Al Quoz','Dubai','+971 52 330 7719','Inactive',null,null,D(2024,5,6))
+    U('U1','System Administrator','EMP-001','Administrator','Head Office','Dubai','+971 50 111 0001','Available',null,null,D(2021,3,1),null),
+    U('U2','Ismail','EMP-014','Supervisor','Nad Al Hamar','Dubai','+971 50 222 4410','Available',null,'V1',D(2021,6,14),55.00),
+    U('U3','Arif','EMP-018','Supervisor','Ajman Industrial 1','Ajman','+971 55 331 7702','Available',null,'V3',D(2022,1,9),50.00),
+    U('U4','Rahul','EMP-021','Supervisor','Jabel Ali','Dubai','+971 52 448 1190','Available',null,'V2',D(2022,4,3),50.00),
+    U('U5','Vinod Kumar','EMP-026','Supervisor','King Faisal','Sharjah','+971 56 770 3325','Available',null,'V4',D(2023,2,20),48.00),
+    U('U6','Aravinthan','EMP-032','Technical Staff','Nad Al Hamar','Dubai','+971 55 902 1174','Available','U2','V1',D(2022,8,11),35.00),
+    U('U7','Deepu','EMP-035','Technical Staff','Nad Al Hamar','Dubai','+971 50 613 8890','Available','U2','V1',D(2022,9,5),35.00),
+    U('U8','Arun','EMP-039','Technical Staff','Jabel Ali','Dubai','+971 54 220 6641','Available','U4','V2',D(2023,1,16),38.00),
+    U('U9','Vishnu','EMP-041','Technical Staff','Ajman Industrial 1','Ajman','+971 56 118 2237','Available','U3','V3',D(2023,3,27),36.00),
+    U('U10','Sajeev','EMP-044','Technical Staff','King Faisal','Sharjah','+971 52 907 4416','Available','U5','V4',D(2023,7,2),35.00),
+    U('U11','Rasheed','EMP-047','Technical Staff','Al Nahda-2','Dubai','+971 50 388 5520','On Leave','U4',null,D(2024,2,12),35.00),
+    U('U12','Suthaharan','EMP-052','Driver','Nad Al Hamar','Dubai','+971 55 470 9931','Available','U2','V1',D(2021,11,8),25.00),
+    U('U13','Anil Joseph','EMP-055','Driver','Jabel Ali','Dubai','+971 50 226 7714','Available','U4','V2',D(2022,5,30),25.00),
+    U('U14','Mujeeb Rahman','EMP-058','Driver','Ajman Industrial 1','Ajman','+971 56 904 3382','Available','U3','V3',D(2023,6,18),25.00),
+    U('U15','Faisal Ahmed','EMP-006','Dashboard Access User','Head Office','Dubai','+971 50 700 1123','Available',null,null,D(2021,9,1),null),
+    U('U16','Priya Nair','EMP-009','Dashboard Access User','Head Office','Dubai','+971 55 640 2288','Available',null,null,D(2022,2,15),null),
+    U('U17','Mohammed Salih','EMP-061','Driver','Al Quoz','Dubai','+971 52 330 7719','Inactive',null,null,D(2024,5,6),25.00)
   ];
   const V=(id,reg,type,make,model,year,fuel,cap,loc,em,drv,sup,base,ins,rg,fit,due,notes)=>({
     id,reg,type,make,model,year,fuel,capacity:cap,location:loc,emirates:em,
@@ -720,14 +749,78 @@ function seed(){
     {id:'DA4',userId:'U2',scope:'Own team only',enabled:true,lastLogin:now()-70*6e4}
   ];
 
-  return {users,vehicles,requests,dashAccess,notifications:[],srSeq:5071};
+  function seedPettyCash(){
+    return [
+      {id:'PC1',date:'2026-08-05',prefix:'Cr',particulars:'Abu Dhabi Commercial Bank',type:'Receipt',vchNo:'CB RV2026 08002',userId:null,debit:3000.00,credit:0,notes:'Bank Transfer'},
+      {id:'PC2',date:'2026-08-05',prefix:'Dr',particulars:'Salary Payable',type:'Payment',vchNo:'CB PV2026 08025',userId:'U3',debit:0,credit:2371.00,notes:'Staff salary payment for Arif'},
+      {id:'PC3',date:'2026-08-06',prefix:'Cr',particulars:'Abu Dhabi Commercial Bank',type:'Receipt',vchNo:'CB RV2026 08005',userId:null,debit:10000.00,credit:0,notes:'Bank Transfer'},
+      {id:'PC4',date:'2026-08-06',prefix:'Dr',particulars:'Haste Trading LLC',type:'Payment',vchNo:'CB PV2026 08028',userId:'U9',debit:0,credit:300.00,notes:''},
+      {id:'PC5',date:'2026-08-06',prefix:'Dr',particulars:'Cash in Hand - Biju',type:'Payment',vchNo:'CB PV2026 08033',userId:'U2',debit:0,credit:500.00,notes:''},
+      {id:'PC6',date:'2026-08-06',prefix:'Dr',particulars:'Rime Refrigeration Trading LLC',type:'Payment',vchNo:'CB PV2026 08034',userId:'U3',debit:0,credit:7550.00,notes:'Material purchase by Arif'},
+      {id:'PC7',date:'2026-08-07',prefix:'Cr',particulars:'Nesto Hyper Market LLC (Branch), Nad Al Hamar',type:'Receipt',vchNo:'CB RV2026 08008',userId:'U2',debit:1191.50,credit:0,notes:''},
+      {id:'PC8',date:'2026-08-07',prefix:'Cr',particulars:'Nesto Hypermarket LLC, Branch, Al Nahda 2, Dubai',type:'Receipt',vchNo:'CB RV2026 08009',userId:'U4',debit:1627.50,credit:0,notes:''},
+      {id:'PC9',date:'2026-08-07',prefix:'Dr',particulars:'Bristol Cool Refrigeration Equipment Trading LLC Shj. Br.',type:'Payment',vchNo:'CB PV2026 08046',userId:'U5',debit:0,credit:1323.00,notes:''},
+      {id:'PC10',date:'2026-08-08',prefix:'Dr',particulars:'Arabian Source Manufacturing LLC',type:'Payment',vchNo:'CB PV2026 08050',userId:'U3',debit:0,credit:3360.00,notes:''},
+      {id:'PC11',date:'2026-08-08',prefix:'Cr',particulars:'Nesto Hypermarket Sole Proprietorship Br 8, Maleha, Sharjah',type:'Receipt',vchNo:'CB RV2026 08010',userId:'U5',debit:315.00,credit:0,notes:''},
+      {id:'PC12',date:'2026-08-09',prefix:'Dr',particulars:'Najmat Gas Dist.',type:'Payment',vchNo:'CB PV2026 08053',userId:'U14',debit:0,credit:149.00,notes:''},
+      {id:'PC13',date:'2026-08-10',prefix:'Dr',particulars:'Wages Expense',type:'Payment',vchNo:'CB PV2026 08052',userId:'U9',debit:0,credit:350.00,notes:''},
+      {id:'PC14',date:'2026-08-11',prefix:'Cr',particulars:'Taybat Fresh Poultry Tr. Branch 1',type:'Receipt',vchNo:'CB RV2026 08011',userId:null,debit:900.00,credit:0,notes:''},
+      {id:'PC15',date:'2026-08-11',prefix:'Cr',particulars:'Nesto Hyper Market LLC (Branch), Nad Al Hamar',type:'Receipt',vchNo:'CB RV2026 08012',userId:'U2',debit:2499.00,credit:0,notes:''},
+      {id:'PC16',date:'2026-08-11',prefix:'Dr',particulars:'Salary Payable',type:'Payment',vchNo:'CB PV2026 08055',userId:'U4',debit:0,credit:1265.00,notes:''},
+      {id:'PC17',date:'2026-08-11',prefix:'Cr',particulars:'Nesto Hypermarket Sole Proprietorship LLC Branch 9, Mia Mall',type:'Receipt',vchNo:'CB RV2026 08013',userId:'U5',debit:787.50,credit:0,notes:''},
+      {id:'PC18',date:'2026-08-11',prefix:'Dr',particulars:'Salary Payable',type:'Payment',vchNo:'CB PV2026 08057',userId:'U5',debit:0,credit:1400.00,notes:''},
+      {id:'PC19',date:'2026-08-12',prefix:'Dr',particulars:'Over Time Expense',type:'Payment',vchNo:'CB PV2026 08058',userId:'U3',debit:0,credit:500.00,notes:'Overtime for Arif'},
+      {id:'PC20',date:'2026-08-12',prefix:'Dr',particulars:'Masafi Building Materials Trading SPS LLC',type:'Payment',vchNo:'CB PV2026 08059',userId:'U6',debit:0,credit:25.00,notes:''},
+      {id:'PC21',date:'2026-08-13',prefix:'Dr',particulars:'Zayan Building Material Trading LLC',type:'Payment',vchNo:'CB PV2026 08060',userId:'U7',debit:0,credit:47.00,notes:''},
+      {id:'PC22',date:'2026-08-13',prefix:'Dr',particulars:'Zayan Building Material Trading LLC',type:'Payment',vchNo:'CB PV2026 08061',userId:'U8',debit:0,credit:582.00,notes:''},
+      {id:'PC23',date:'2026-08-13',prefix:'Dr',particulars:'Thani Sanitary Ware Trading LLC',type:'Payment',vchNo:'CB PV2026 08062',userId:'U10',debit:0,credit:28.00,notes:''},
+      {id:'PC24',date:'2026-08-15',prefix:'Dr',particulars:'Accomadation Exp.',type:'Payment',vchNo:'CB PV2026 08063',userId:'U12',debit:0,credit:60.00,notes:''},
+      {id:'PC25',date:'2026-08-15',prefix:'Dr',particulars:'Vehicle Maintenance',type:'Payment',vchNo:'CB PV2026 08064',userId:'U14',debit:0,credit:20.00,notes:''},
+      {id:'PC26',date:'2026-08-15',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08071',userId:'U3',debit:0,credit:40.00,notes:''},
+      {id:'PC27',date:'2026-08-16',prefix:'Cr',particulars:'Abu Dhabi Commercial Bank',type:'Receipt',vchNo:'CB RV2026 08016',userId:null,debit:5000.00,credit:0,notes:''},
+      {id:'PC28',date:'2026-08-16',prefix:'Dr',particulars:'Wages Expense',type:'Payment',vchNo:'CB PV2026 08065',userId:'U9',debit:0,credit:500.00,notes:''},
+      {id:'PC29',date:'2026-08-16',prefix:'Dr',particulars:'Rubaiya Zueaid Building Materials Co. LLC',type:'Payment',vchNo:'CB PV2026 08068',userId:'U4',debit:0,credit:2063.00,notes:''},
+      {id:'PC30',date:'2026-08-17',prefix:'Dr',particulars:'Over Time Expense',type:'Payment',vchNo:'CB PV2026 08066',userId:'U3',debit:0,credit:520.00,notes:''},
+      {id:'PC31',date:'2026-08-17',prefix:'Dr',particulars:'Over Time Expense',type:'Payment',vchNo:'CB PV2026 08067',userId:'U2',debit:0,credit:127.50,notes:''},
+      {id:'PC32',date:'2026-08-17',prefix:'Dr',particulars:'Dexicon Cool AC Spare Parts Trading LLC',type:'Payment',vchNo:'CB PV2026 08069',userId:'U3',debit:0,credit:120.00,notes:''},
+      {id:'PC33',date:'2026-08-17',prefix:'Dr',particulars:'Printing & Stationary',type:'Payment',vchNo:'CB PV2026 08082',userId:'U1',debit:0,credit:50.00,notes:''},
+      {id:'PC34',date:'2026-08-18',prefix:'Dr',particulars:'Zayan Building Material Trading LLC',type:'Payment',vchNo:'CB PV2026 08070',userId:'U5',debit:0,credit:352.00,notes:''},
+      {id:'PC35',date:'2026-08-18',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08083',userId:'U3',debit:0,credit:8.50,notes:''},
+      {id:'PC36',date:'2026-08-19',prefix:'Dr',particulars:'Golden Bearing Auto Spare Parts Tr LLC',type:'Payment',vchNo:'CB PV2026 08081',userId:'U14',debit:0,credit:63.00,notes:''},
+      {id:'PC37',date:'2026-08-19',prefix:'Dr',particulars:'Star Cool Refrigeration Int Spare Parts Trading',type:'Payment',vchNo:'CB PV2026 08084',userId:'U3',debit:0,credit:1500.00,notes:''},
+      {id:'PC38',date:'2026-08-20',prefix:'Dr',particulars:'Over Time Expense',type:'Payment',vchNo:'CB PV2026 08085',userId:'U9',debit:0,credit:210.00,notes:''},
+      {id:'PC39',date:'2026-08-20',prefix:'Dr',particulars:'Sharjah Oxygen Company',type:'Payment',vchNo:'CB PV2026 08100',userId:'U3',debit:0,credit:31.50,notes:''},
+      {id:'PC40',date:'2026-08-21',prefix:'Dr',particulars:'Super Cool Ac Spare Parts Trading',type:'Payment',vchNo:'CB PV2026 08096',userId:'U9',debit:0,credit:28.00,notes:''},
+      {id:'PC41',date:'2026-08-22',prefix:'Cr',particulars:'Nesto Hypermarket LLC, Branch, Al Nahda 2, Dubai',type:'Receipt',vchNo:'CB RV2026 08019',userId:'U4',debit:1443.50,credit:0,notes:''},
+      {id:'PC42',date:'2026-08-22',prefix:'Dr',particulars:'Prepaid Visa Expense CBEM10 Mathinuthan Samithamby',type:'Payment',vchNo:'CB PV2026 08094',userId:'U2',debit:0,credit:450.00,notes:''},
+      {id:'PC43',date:'2026-08-22',prefix:'Dr',particulars:'Medical Expense',type:'Payment',vchNo:'CB PV2026 08095',userId:'U3',debit:0,credit:220.00,notes:''},
+      {id:'PC44',date:'2026-08-22',prefix:'Dr',particulars:'Accomadation Exp.',type:'Payment',vchNo:'CB PV2026 08097',userId:'U14',debit:0,credit:90.00,notes:''},
+      {id:'PC45',date:'2026-08-22',prefix:'Dr',particulars:'Parking Charge',type:'Payment',vchNo:'CB PV2026 08098',userId:'U14',debit:0,credit:16.00,notes:''},
+      {id:'PC46',date:'2026-08-22',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08099',userId:'U9',debit:0,credit:13.00,notes:''},
+      {id:'PC47',date:'2026-08-22',prefix:'Dr',particulars:'Golden Bearing Auto Spare Parts Tr LLC',type:'Payment',vchNo:'CB PV2026 08102',userId:'U14',debit:0,credit:54.50,notes:''},
+      {id:'PC48',date:'2026-08-22',prefix:'Dr',particulars:'Vehicle Maintenance',type:'Payment',vchNo:'CB PV2026 08103',userId:'U14',debit:0,credit:300.00,notes:''},
+      {id:'PC49',date:'2026-08-23',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08104',userId:'U3',debit:0,credit:14.50,notes:''},
+      {id:'PC50',date:'2026-08-24',prefix:'Dr',particulars:'Sharjah Oxygen Company',type:'Payment',vchNo:'CB PV2026 08105',userId:'U3',debit:0,credit:73.50,notes:''},
+      {id:'PC51',date:'2026-08-25',prefix:'Dr',particulars:'Al Thameer Advertising & Publishing',type:'Payment',vchNo:'CB PV2026 08126',userId:'U1',debit:0,credit:399.00,notes:''},
+      {id:'PC52',date:'2026-08-27',prefix:'Cr',particulars:'Nesto Hypermarket Sole Proprietorship LLC Branch 9, Mia Mall',type:'Receipt',vchNo:'CB RV2026 08024',userId:'U5',debit:288.50,credit:0,notes:''},
+      {id:'PC53',date:'2026-08-27',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08116',userId:'U3',debit:0,credit:400.00,notes:''},
+      {id:'PC54',date:'2026-08-27',prefix:'Cr',particulars:'Cash in Hand - Biju',type:'Payment',vchNo:'CB PV2026 08117',userId:'U2',debit:100.00,credit:0,notes:'Cash received from Biju'},
+      {id:'PC55',date:'2026-08-30',prefix:'Cr',particulars:'Abdulgafoor Kannampurath',type:'Receipt',vchNo:'CB RV2026 08025',userId:'U3',debit:5630.00,credit:0,notes:''},
+      {id:'PC56',date:'2026-08-30',prefix:'Dr',particulars:'Dar Al Bustan Building Materials LLC',type:'Payment',vchNo:'CB PV2026 08121',userId:'U3',debit:0,credit:5630.00,notes:''},
+      {id:'PC57',date:'2026-08-30',prefix:'Cr',particulars:'Abu Dhabi Commercial Bank',type:'Receipt',vchNo:'CB RV2026 08026',userId:null,debit:1000.00,credit:0,notes:''},
+      {id:'PC58',date:'2026-08-30',prefix:'Dr',particulars:'Abdulgafoor Kannampurath',type:'Payment',vchNo:'CB PV2026 08122',userId:'U3',debit:0,credit:269.00,notes:''},
+      {id:'PC59',date:'2026-08-30',prefix:'Dr',particulars:'Refreshment Expense',type:'Payment',vchNo:'CB PV2026 08127',userId:'U3',debit:0,credit:10.00,notes:''}
+    ];
+  }
+
+  return {users,vehicles,requests,dashAccess,pettyCash:seedPettyCash(),notifications:[],srSeq:5071};
 }
 
 /* ---------- state ---------- */
 let S;
 function load(){
   const raw=store.get(KEY);
-  if(raw){try{S=JSON.parse(raw);if(S&&S.requests&&S.requests.length)return}catch(e){}}
+  if(raw){try{S=JSON.parse(raw);if(S&&S.requests&&S.requests.length){if(!S.pettyCash)S.pettyCash=seed().pettyCash;return}}catch(e){}}
   S=seed();
   seedNotifs();
   save();
@@ -798,6 +891,7 @@ const PAGES=[
   {k:'requests',t:'Service Requests',s:'Complaints & service work',i:'clip',count:()=>S.requests.filter(r=>['New','Allocated','Work Started'].includes(r.status)).length},
   {k:'monitoring',t:'Work Monitoring',s:'Who is free, who is on a job',i:'pulse'},
   {k:'vehmon',t:'Vehicle Monitoring',s:'Fleet deployment',i:'van'},
+  {k:'pettycash',t:'Petty Cash',s:'Cash in Hand — Davood Book ledger',i:'clip'},
   {g:'Master data'},
   {k:'users',t:'User Management',s:'Employees, roles and teams',i:'users'},
   {k:'vehicles',t:'Vehicle Management',s:'Service fleet register',i:'van'},
@@ -823,7 +917,7 @@ function render(){
   const p=PAGES.find(x=>x.k===page)||PAGES[1];
   $('#pageTitle').textContent=p.t;$('#crumb').textContent=p.s;
   buildNav();
-  const V={dashboard:vDash,requests:vRequests,monitoring:vMon,vehmon:vVehMon,users:vUsers,vehicles:vVehicles,access:vAccess,reports:vReports,notifications:vNotifs};
+  const V={dashboard:vDash,requests:vRequests,monitoring:vMon,vehmon:vVehMon,pettycash:vPettyCash,users:vUsers,vehicles:vVehicles,access:vAccess,reports:vReports,notifications:vNotifs};
   $('#view').innerHTML=(V[page]||vDash)();
   if(afterRender.length){afterRender.forEach(f=>f());afterRender=[]}
   save();
@@ -867,7 +961,7 @@ function vDash(){
         leave=fu.filter(u=>uStatus(u.id)==='On Leave').length,inact=fu.filter(u=>uStatus(u.id)==='Inactive').length;
   const pc=n=>(n/total*100).toFixed(0);
   const live=S.requests.filter(r=>ACTIVE.includes(r.status)).sort((a,b)=>SRSTATUS.indexOf(b.status)-SRSTATUS.indexOf(a.status));
-  later(drawCharts);later(startTickers);
+  later(startTickers);
   return `
   <div class="gauge">
     <div class="gauge-row">
@@ -936,62 +1030,10 @@ function vDash(){
       <td>${bdg(r.status)}</td>
       <td><button class="btn btn-sm" onclick="viewSR('${r.srNo}')">Open</button></td>
     </tr>`).join(''):`<tr><td colspan="11" class="t-empty"><b>Nothing running</b>Allocate a service request to see live operations here.</td></tr>`}</tbody>
-  </table></div></div>
-
-  <div class="sec-h"><h2>Charts</h2><span class="rule"></span></div>
-  <div class="chart-grid">
-    <div class="card"><div class="card-h"><h3>Service request trend</h3><span class="eyebrow" style="margin-left:auto">Volume by window</span></div>
-      <div class="card-b"><div class="chart-box"><canvas id="cTrend"></canvas></div></div></div>
-    <div class="card"><div class="card-h"><h3>Service status</h3></div>
-      <div class="card-b"><div class="chart-box"><canvas id="cStatus"></canvas></div></div></div>
-  </div>
-  <div class="chart-grid-3" style="margin-top:14px">
-    <div class="card"><div class="card-h"><h3>AMC vs Non-AMC</h3></div><div class="card-b"><div class="chart-box"><canvas id="cAmc"></canvas></div></div></div>
-    <div class="card"><div class="card-h"><h3>Priority distribution</h3></div><div class="card-b"><div class="chart-box"><canvas id="cPrio"></canvas></div></div></div>
-    <div class="card"><div class="card-h"><h3>Employee status</h3></div><div class="card-b"><div class="chart-box"><canvas id="cEmp"></canvas></div></div></div>
-  </div>
-  <div class="chart-grid" style="margin-top:14px">
-    <div class="card"><div class="card-h"><h3>Vehicle status</h3></div><div class="card-b"><div class="chart-box"><canvas id="cVeh"></canvas></div></div></div>
-    <div class="card"><div class="card-h"><h3>Service type mix</h3><span class="eyebrow" style="margin-left:auto">Top activities</span></div><div class="card-b"><div class="chart-box"><canvas id="cType"></canvas></div></div></div>
-  </div>`;
+  </table></div></div>`;
 }
 
 let charts=[];
-function drawCharts(){
-  if(!window.Chart)return;
-  charts.forEach(c=>{try{c.destroy()}catch(e){}});charts=[];
-  Chart.defaults.font.family="Inter, sans-serif";Chart.defaults.font.size=11;Chart.defaults.color='#4B5D73';
-  const C={cool:'#0E8FA8',warm:'#D9822B',hot:'#C8453C',done:'#1E8E5A',idle:'#8393A6',violet:'#5B54B8',ice:'#17B7D4'};
-  const mk=(id,cfg)=>{const el=document.getElementById(id);if(el)charts.push(new Chart(el,cfg))};
-  const R=S.requests;
-  const y=(()=>{const d=new Date();d.setDate(d.getDate()-1);return R.filter(r=>new Date(r.reportedDate).toDateString()===d.toDateString()).length})();
-  const noLeg={plugins:{legend:{display:false}}};
-  mk('cTrend',{type:'bar',data:{labels:['Today','Yesterday','Last 7 days','Last 30 days'],
-    datasets:[{data:[R.filter(r=>isToday(r.reportedDate)).length,y,R.filter(r=>r.reportedDate>=daysAgo(7)).length,R.filter(r=>r.reportedDate>=daysAgo(30)).length],
-      backgroundColor:[C.ice,C.cool,C.violet,'#2E4A63'],borderRadius:6,maxBarThickness:56}]},
-    options:{responsive:true,maintainAspectRatio:false,...noLeg,scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}});
-  const stCount=['New','Allocated','Work Started','Work Completed','Closed'].map(s=>R.filter(r=>r.status===s).length);
-  mk('cStatus',{type:'doughnut',data:{labels:['New','Allocated','Work Started','Work Completed','Closed'],
-    datasets:[{data:stCount,backgroundColor:[C.idle,C.violet,C.warm,C.done,C.cool],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:'rectRounded'}}}}});
-  mk('cAmc',{type:'doughnut',data:{labels:['AMC','Non-AMC'],datasets:[{data:[R.filter(r=>r.amc==='AMC').length,R.filter(r=>r.amc==='Non-AMC').length],
-    backgroundColor:[C.cool,C.violet],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}}}});
-  mk('cPrio',{type:'bar',data:{labels:PRIOS.slice().reverse(),datasets:[{data:PRIOS.slice().reverse().map(p=>R.filter(r=>r.priority===p).length),
-    backgroundColor:[C.hot,C.warm,C.cool,C.idle],borderRadius:6,maxBarThickness:34}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,...noLeg,scales:{x:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},y:{grid:{display:false}}}}});
-  const fu=fieldUsers();
-  mk('cEmp',{type:'doughnut',data:{labels:USTATUS,datasets:[{data:USTATUS.map(s=>fu.filter(u=>uStatus(u.id)===s).length),
-    backgroundColor:[C.cool,C.warm,C.violet,C.idle,'#C3CCD8'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded',font:{size:10}}}}}});
-  mk('cVeh',{type:'bar',data:{labels:VSTATUS,datasets:[{data:VSTATUS.map(s=>S.vehicles.filter(v=>vStatus(v.id)===s).length),
-    backgroundColor:[C.cool,C.violet,C.warm,C.hot,C.idle],borderRadius:6,maxBarThickness:48}]},
-    options:{responsive:true,maintainAspectRatio:false,...noLeg,scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}});
-  const tc={};R.forEach(r=>tc[r.serviceType]=(tc[r.serviceType]||0)+1);
-  const top=Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,7);
-  mk('cType',{type:'bar',data:{labels:top.map(t=>t[0]),datasets:[{data:top.map(t=>t[1]),backgroundColor:C.ice,borderRadius:5,maxBarThickness:22}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,...noLeg,scales:{x:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},y:{grid:{display:false}}}}});
-}
 let tickTimer=null;
 function startTickers(){
   if(tickTimer)clearInterval(tickTimer);
@@ -1004,7 +1046,8 @@ function startTickers(){
    ===================================================================== */
 const F={sr:{q:'',status:'',client:'',area:'',em:'',amc:'',prio:'',type:'',sup:'',veh:'',from:'',to:''},
          us:{q:'',role:'',status:'',em:''},
-         vh:{q:'',status:'',type:'',loc:''}};
+         vh:{q:'',status:'',type:'',loc:''},
+         pc:{q:'',type:'',from:'',to:''}};
 function setF(g,k,v){F[g][k]=v;render()}
 function clearF(g){Object.keys(F[g]).forEach(k=>F[g][k]='');render()}
 const opts=(list,sel,ph)=>`<option value="">${ph}</option>`+list.map(o=>{
@@ -1057,7 +1100,8 @@ function vRequests(){
       <input class="inp" type="date" value="${f.from}" title="From date" onchange="setF('sr','from',this.value)">
       <input class="inp" type="date" value="${f.to}" title="To date" onchange="setF('sr','to',this.value)">
       <button class="btn btn-sm" onclick="clearF('sr')">Clear</button>
-      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openSR()">${icon('plus',14)} Add service request</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel('srTable','Service_Requests')">${icon('dl',14)} Export to Excel</button>
+      <button class="btn btn-sm btn-cool" onclick="openSR()">${icon('plus',14)} Add service request</button>
     </div>
     <div class="bar-tools" style="border-bottom:1px solid var(--line)">
       <div class="chips">
@@ -1088,6 +1132,7 @@ function srTable(list){
     <td><div class="acts">
       <button class="btn btn-icon" title="View" onclick="viewSR('${r.srNo}')">${icon('eye',14)}</button>
       <button class="btn btn-icon" title="Edit" onclick="openSR('${r.srNo}')">${icon('pen',14)}</button>
+      <button class="btn btn-icon" title="Generate Invoice" onclick="generateInvoice('${r.srNo}')">${icon('clip',14)}</button>
       ${r.status==='New'?`<button class="btn btn-sm btn-cool" onclick="openAllocate('${r.srNo}')">Allocate</button>`:''}
       ${r.status==='Allocated'?`<button class="btn btn-sm btn-warm" onclick="startWork('${r.srNo}','admin')">Start</button>`:''}
       ${r.status==='Work Started'?`<button class="btn btn-sm btn-done" onclick="openComplete('${r.srNo}','admin')">Complete</button>`:''}
@@ -1278,6 +1323,47 @@ function startWork(srNo,from){
     });
 }
 let cdraft={};
+
+function calculateTeamPay(r){
+  if(!r) return { total: 0, items: [], hrs: 0 };
+  const hrs = r.hours != null ? r.hours : (r.timeIn ? hoursOf(r.timeIn, now()) : 0);
+  const members = teamIds(r).map(id => {
+    const u = user(id) || {};
+    const rate = u.hourlyRate || 0;
+    const pay = Math.round(rate * hrs * 100) / 100;
+    return { id, name: u.name, role: u.role, rate, hrs, pay };
+  });
+  const total = members.reduce((sum, m) => sum + m.pay, 0);
+  return { total: Math.round(total * 100) / 100, items: members, hrs };
+}
+
+function teamPayHTML(r){
+  const p = calculateTeamPay(r);
+  if(!p.items.length) return '';
+  return `<div class="panel" style="margin-top:14px;background:#FAFBFD">
+    <div class="panel-t" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Generated Pay Breakdown (Hourly Payment)</span>
+      <b class="mono" style="color:var(--cool)">Total Pay: AED ${p.total.toFixed(2)}</b>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Team Member</th><th>Role</th><th>Hourly Rate</th><th>Hours</th><th style="text-align:right">Pay Amount</th></tr></thead>
+      <tbody>
+        ${p.items.map(m => `<tr>
+          <td><b>${esc(m.name)}</b></td>
+          <td>${esc(m.role)}</td>
+          <td class="mono">${m.rate ? 'AED ' + Number(m.rate).toFixed(2) + '/h' : '—'}</td>
+          <td class="mono">${m.hrs ? m.hrs + ' h' : '—'}</td>
+          <td class="mono" style="text-align:right;font-weight:600;color:${m.pay ? 'var(--done)' : 'var(--txt-3)'}">${m.pay ? 'AED ' + m.pay.toFixed(2) : 'AED 0.00'}</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--line);font-weight:700;background:#E3F4F8">
+          <td colspan="4" style="text-align:right">Total Generated Pay (${p.hrs} h)</td>
+          <td class="mono" style="text-align:right;color:#0E8FA8;font-size:13.5px">AED ${p.total.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
 function openComplete(srNo,from){
   const r=sr(srNo);if(!r)return;
   cdraft={workPerformed:'',remarks:'',notes:'',material:'',replacement:'No',followUp:'No',from};
@@ -1294,23 +1380,149 @@ function openComplete(srNo,from){
         <div class="field"><label>Material used</label><input class="inp" placeholder="R410a 2 kg" oninput="cdraft.material=this.value"></div>
         <div class="field"><label>Replacement required</label><select class="inp" onchange="cdraft.replacement=this.value"><option>No</option><option>Yes</option></select></div>
         <div class="field"><label>Follow-up required</label><select class="inp" onchange="cdraft.followUp=this.value"><option>No</option><option>Yes</option></select></div>
-      </div>`,
+      </div>
+      ${teamPayHTML(r)}`,
     footer:`<button class="btn l" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-cool" onclick="generateInvoice('${r.srNo}')">${icon('clip',14)} Generate Invoice</button>
             <button class="btn btn-done" onclick="doComplete('${r.srNo}')">${icon('check',14)} Complete work</button>`});
   later(startTickers);startTickers();
 }
+
+function generateInvoice(srNo){
+  const r = sr(srNo);
+  if(!r) return;
+
+  const payData = calculateTeamPay(r);
+  const items = r.items || [];
+  
+  const lineItems = items.map((i, idx) => {
+    const rate = i.equipment === 'Chiller' ? 250 : i.equipment === 'AHU' ? 200 : i.equipment === 'Cold Room' ? 300 : 150;
+    const amount = (i.qty || 1) * rate;
+    return {
+      no: idx + 1,
+      desc: `${i.work} — ${i.equipment} (${i.floor || 'Site'})`,
+      qty: i.qty || 1,
+      rate: rate,
+      amount: amount
+    };
+  });
+
+  const itemsSubtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+  const laborSubtotal = payData.total;
+  const subtotal = itemsSubtotal + laborSubtotal;
+  const vat = Math.round(subtotal * 0.05 * 100) / 100;
+  const grandTotal = Math.round((subtotal + vat) * 100) / 100;
+  const invDate = fmtDate(r.timeOut || now());
+  const invNo = 'INV-2026-' + r.srNo;
+
+  modal({
+    title: 'Tax Invoice — #' + invNo,
+    eyebrow: 'COOL BOX ELECTROMECHANICAL WORKS LLC',
+    wide: true,
+    body: `
+    <div id="invPrintArea" style="font-family:Inter,sans-serif;color:#0C1725;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0C1725;padding-bottom:14px;margin-bottom:16px">
+        <div>
+          <h2 style="margin:0;font-family:Archivo;font-size:20px">COOL BOX ELECTROMECHANICAL WORKS LLC</h2>
+          <div style="font-size:12px;color:#4B5D73;margin-top:3px">Ajman Industrial Area 1, Ajman, UAE. | Tel: +971 50 2270 824</div>
+          <div style="font-size:12px;font-family:'IBM Plex Mono';color:#4B5D73">TRN: 104766050900003 | Email: info@coolbox.ae</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:Archivo;font-size:22px;font-weight:800;color:#0E8FA8">TAX INVOICE</div>
+          <b class="mono" style="font-size:14px;display:block">${invNo}</b>
+          <div style="font-size:12px;color:#4B5D73">Date: ${invDate}</div>
+        </div>
+      </div>
+
+      <div class="grid2" style="gap:20px;margin-bottom:18px;background:#FAFBFD;padding:12px;border:1px solid #E2E7EE;border-radius:8px">
+        <div>
+          <div class="eyebrow" style="margin-bottom:4px">Billed To (Client)</div>
+          <h4 style="margin:0;font-size:15px">${esc(r.client)}</h4>
+          <div style="font-size:12.5px;color:#4B5D73">${esc(r.area)}, ${esc(r.emirates)}</div>
+          <div style="font-size:12px;color:#4B5D73;margin-top:3px">Location: ${esc(r.location || 'On site')}</div>
+        </div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:4px">Service Reference</div>
+          <div style="font-size:13px"><b>SR Number:</b> #${r.srNo} ${r.projectNo ? '· ' + esc(r.projectNo) : ''}</div>
+          <div style="font-size:12.5px"><b>Service Type:</b> ${esc(r.serviceType)} (${esc(r.equipment)})</div>
+          <div style="font-size:12.5px"><b>Contract Status:</b> ${esc(r.amc)}</div>
+        </div>
+      </div>
+
+      <div class="panel-t" style="margin-bottom:6px">Service &amp; Labor Line Items</div>
+      <div class="tbl-wrap" style="margin-bottom:16px">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead>
+            <tr style="background:#FAFBFD;border-bottom:2px solid #CFD8E3">
+              <th style="padding:8px;text-align:left">#</th>
+              <th style="padding:8px;text-align:left">Description</th>
+              <th style="padding:8px;text-align:center">Qty / Hours</th>
+              <th style="padding:8px;text-align:right">Rate (AED)</th>
+              <th style="padding:8px;text-align:right">Amount (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItems.map(item => `
+              <tr style="border-bottom:1px solid #E2E7EE">
+                <td class="mono" style="padding:8px">${item.no}</td>
+                <td style="padding:8px"><b>${esc(item.desc)}</b></td>
+                <td class="mono" style="padding:8px;text-align:center">${item.qty}</td>
+                <td class="mono" style="padding:8px;text-align:right">${item.rate.toFixed(2)}</td>
+                <td class="mono" style="padding:8px;text-align:right">${item.amount.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+            ${payData.items.map(m => `
+              <tr style="border-bottom:1px solid #E2E7EE;background:#FAFBFD">
+                <td class="mono" style="padding:8px">•</td>
+                <td style="padding:8px">Labor / Technician Pay: <b>${esc(m.name)}</b> (${esc(m.role)})</td>
+                <td class="mono" style="padding:8px;text-align:center">${m.hrs} h</td>
+                <td class="mono" style="padding:8px;text-align:right">${m.rate ? m.rate.toFixed(2) : '0.00'}</td>
+                <td class="mono" style="padding:8px;text-align:right">${m.pay ? m.pay.toFixed(2) : '0.00'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="font-size:11.5px;color:#4B5D73;max-width:55%">
+          <b>Payment Terms:</b> Payable within 30 days.<br>
+          Bank: Abu Dhabi Commercial Bank | Account: CoolChain FM Operations<br>
+          <i>Thank you for your business!</i>
+        </div>
+        <div style="width:260px">
+          <table style="width:100%;font-size:12.5px">
+            <tr><td style="padding:4px 0">Services Subtotal:</td><td class="mono" style="text-align:right">AED ${itemsSubtotal.toFixed(2)}</td></tr>
+            <tr><td style="padding:4px 0">Labor Subtotal:</td><td class="mono" style="text-align:right">AED ${laborSubtotal.toFixed(2)}</td></tr>
+            <tr style="border-top:1px solid #CFD8E3"><td style="padding:6px 0;font-weight:600">Subtotal:</td><td class="mono" style="text-align:right;font-weight:600">AED ${subtotal.toFixed(2)}</td></tr>
+            <tr><td style="padding:4px 0">VAT (5%):</td><td class="mono" style="text-align:right">AED ${vat.toFixed(2)}</td></tr>
+            <tr style="border-top:2px solid #0C1725;border-bottom:2px double #0C1725;font-weight:800;font-size:14px;background:#E3F4F8">
+              <td style="padding:8px 0;color:#0E8FA8">Total Due:</td>
+              <td class="mono" style="text-align:right;color:#0E8FA8">AED ${grandTotal.toFixed(2)}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>`,
+    footer: `<button class="btn l" onclick="closeModal()">Close</button>
+             <button class="btn btn-cool" onclick="window.print()">${icon('dl',14)} Print Invoice</button>`
+  });
+}
+
 function doComplete(srNo){
   const r=sr(srNo);
   if(!cdraft.workPerformed.trim()){toast('Work performed required','Record what was done on site.','err');return}
   r.timeOut=now();r.hours=hoursOf(r.timeIn,r.timeOut);r.status='Work Completed';
+  const payInfo = calculateTeamPay(r);
+  r.totalPay = payInfo.total;
   Object.assign(r,{workPerformed:cdraft.workPerformed,remarks:cdraft.remarks,notes:cdraft.notes,material:cdraft.material,replacement:cdraft.replacement,followUp:cdraft.followUp});
   r.timeline.push({t:r.timeOut,e:'Work completed',by:user(r.supId).name});
-  notify('admin','Work completed',`SR #${r.srNo} · ${r.client} — ${r.hours} h recorded by ${user(r.supId).name}.`,null,now(),r.srNo);
+  notify('admin','Work completed',`SR #${r.srNo} · ${r.client} — ${r.hours} h recorded by ${user(r.supId).name} (Generated Pay: AED ${payInfo.total.toFixed(2)}).`,null,now(),r.srNo);
   if(cdraft.followUp==='Yes')notify('admin','Follow-up flagged',`SR #${r.srNo} · ${r.client} — supervisor marked follow-up required.`,null,now(),r.srNo);
   const from=cdraft.from;save();closeModal();
   phSheet=null;if(from==='sup')phTab='completed';
   afterAction();
-  toast('Service request completed','Time out '+fmtTime(r.timeOut)+' · '+r.hours+' h. Crew and vehicle released.','ok');
+  toast('Service request completed','Time out '+fmtTime(r.timeOut)+' · '+r.hours+' h · Total pay: AED '+payInfo.total.toFixed(2)+'. Crew released.','ok');
 }
 function closeSR(srNo){
   const r=sr(srNo);
@@ -1396,11 +1608,13 @@ function viewSR(srNo){
             <dt>Follow-up</dt><dd>${esc(r.followUp)}</dd>
             ${r.notes?`<dt>Notes</dt><dd>${esc(r.notes)}</dd>`:''}
           </dl></div>`:''}
-        <div class="panel"><div class="panel-t">Timeline</div>
+        ${teamPayHTML(r)}
+        <div class="panel" style="margin-top:14px"><div class="panel-t">Timeline</div>
           <ul class="tl">${r.timeline.slice().sort((a,b)=>a.t-b.t).map((t,i,arr)=>`<li class="${i===arr.length-1?'acc':''}"><time>${fmtTime(t.t)}</time><b>${esc(t.e)}</b><p>${esc(t.by||'')}</p></li>`).join('')}</ul></div>
       </div>
     </div>`,
     footer:`<button class="btn l" onclick="openSR('${r.srNo}')">${icon('pen',14)} Edit</button>
+            <button class="btn btn-cool" onclick="generateInvoice('${r.srNo}')">${icon('clip',14)} Generate Invoice</button>
             <button class="btn" onclick="closeModal()">Close</button>${acts.join('')}`});
   startTickers();
 }
@@ -1435,7 +1649,8 @@ function vUsers(){
       <select class="inp" onchange="setF('us','status',this.value)">${opts(USTATUS,f.status,'All statuses')}</select>
       <select class="inp" onchange="setF('us','em',this.value)">${opts(EMIRATES,f.em,'All emirates')}</select>
       <button class="btn btn-sm" onclick="clearF('us')">Clear</button>
-      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openUser()">${icon('plus',14)} Add user</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel('uTable','Employees_List')">${icon('dl',14)} Export to Excel</button>
+      <button class="btn btn-sm btn-cool" onclick="openUser()">${icon('plus',14)} Add user</button>
     </div>
     <div id="uTable">${uTable(list)}</div>
   </div>`;
@@ -1443,7 +1658,7 @@ function vUsers(){
 function uTable(list){
   if(!list.length)return `<div class="t-empty"><b>No users match</b>Try a different role or search term.</div>`;
   return `<div class="tbl-wrap"><table>
-  <thead><tr><th>Employee</th><th>Employee ID</th><th>Role</th><th>Destination</th><th>Emirates</th><th>Current assignment</th><th>Vehicle</th><th>Status</th><th>History</th><th>Actions</th></tr></thead>
+  <thead><tr><th>Employee</th><th>Employee ID</th><th>Role</th><th>Destination</th><th>Emirates</th><th>Current assignment</th><th>Vehicle</th><th>Hourly pay</th><th>Status</th><th>History</th><th>Actions</th></tr></thead>
   <tbody>${list.map(u=>{
     const st=uStatus(u.id),c=curSR(u.id),h=historyOf(u.id);
     return `<tr>
@@ -1452,6 +1667,7 @@ function uTable(list){
     <td>${esc(u.role)}</td><td>${esc(u.destination)}</td><td>${esc(u.emirates)}</td>
     <td>${c?`<span class="sr-no">#${c.srNo}</span> <span style="font-size:12px">${esc(c.client)}</span><div style="color:var(--txt-3);font-size:11.5px">${esc(c.area)} · ${esc(c.serviceType)}</div>`:'<span style="color:var(--txt-3)">—</span>'}</td>
     <td class="mono">${u.vehId?esc(veh(u.vehId).reg):'—'}</td>
+    <td class="mono">${u.hourlyRate!=null?'AED '+Number(u.hourlyRate).toFixed(2):'—'}</td>
     <td>${bdg(st)}</td>
     <td><button class="btn btn-icon" title="Work history" onclick="openHistory('${u.id}')" style="${h.length?'color:var(--warm);border-color:#F2DCBE;background:var(--warm-soft)':''}">${icon('hist',14)}</button>
         <span class="mono" style="font-size:11px;color:var(--txt-3);margin-left:4px">${h.length}</span></td>
@@ -1465,7 +1681,7 @@ let udraft=null;
 function openUser(id){
   const u=id?user(id):null;
   udraft=u?Object.assign({},u):{id:uid('U'),name:'',empId:'EMP-'+String(60+S.users.length).padStart(3,'0'),role:'Technical Staff',
-    destination:'',emirates:'Dubai',mobile:'',email:'',address:'',joinDate:now(),base:'Available',supId:null,vehId:null};
+    destination:'',emirates:'Dubai',mobile:'',email:'',address:'',hourlyRate:null,joinDate:now(),base:'Available',supId:null,vehId:null};
   udraft.__edit=!!u;
   const dstr=ts=>{const x=new Date(ts||now());return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`};
   modal({title:u?'Edit '+u.name:'Add user',eyebrow:u?'Employee '+u.empId:'Workforce master data',
@@ -1488,7 +1704,10 @@ function openUser(id){
           <datalist id="dlAreas2">${AREAS.concat(['Head Office']).map(a=>`<option value="${esc(a)}">`).join('')}</datalist></div>
         <div class="field"><label>Emirates</label><select class="inp" onchange="udraft.emirates=this.value">${opts(EMIRATES,udraft.emirates,'Select')}</select></div>
       </div>
-      <div class="field"><label>Address</label><input class="inp" value="${esc(udraft.address)}" oninput="udraft.address=this.value"></div>
+      <div class="grid2">
+        <div class="field"><label>Address</label><input class="inp" value="${esc(udraft.address)}" oninput="udraft.address=this.value"></div>
+        <div class="field"><label>Hourly Payment (AED/h)</label><input class="inp mono" type="number" step="0.01" value="${udraft.hourlyRate!=null?udraft.hourlyRate:''}" placeholder="Optional, e.g. 50.00" oninput="udraft.hourlyRate=this.value?Number(this.value):null"></div>
+      </div>
       <div class="grid3">
         <div class="field"><label>Joining date</label><input class="inp" type="date" value="${dstr(udraft.joinDate)}" onchange="udraft.joinDate=new Date(this.value).getTime()"></div>
         <div class="field"><label>Status</label><select class="inp" onchange="udraft.base=this.value">${opts(['Available','On Leave','Inactive'],udraft.base,'Select')}</select></div>
@@ -1529,6 +1748,7 @@ function viewUser(id){
         <dt>Mobile</dt><dd class="mono">${esc(u.mobile)}</dd>
         <dt>Email</dt><dd>${esc(u.email)}</dd>
         <dt>Address</dt><dd>${esc(u.address||'—')}</dd>
+        <dt>Hourly pay</dt><dd class="mono">${u.hourlyRate!=null?'AED '+Number(u.hourlyRate).toFixed(2):'—'}</dd>
         <dt>Supervisor</dt><dd>${u.supId?esc(user(u.supId).name):'—'}</dd>
         <dt>Base status</dt><dd>${esc(u.base)}</dd>
       </dl>
@@ -1576,7 +1796,7 @@ function openHistory(id){
         <td style="max-width:230px;font-size:12px;color:var(--txt-2)">${esc(r.remarks||'—')}</td>
       </tr>`).join('')}</tbody></table></div>`
     :`<div class="t-empty"><b>No service history yet</b>${esc(u.name)} has not been assigned to a completed request.</div>`}`,
-    footer:`<button class="btn" onclick="closeModal()">Close</button>`});
+    footer:`<button class="btn btn-cool" onclick="exportTableToExcel(this.closest('.modal').querySelector('table'),'Employee_Work_History')">${icon('dl',14)} Export to Excel</button><button class="btn" onclick="closeModal()">Close</button>`});
   startTickers();
 }
 
@@ -1612,7 +1832,8 @@ function vVehicles(){
       <select class="inp" onchange="setF('vh','type',this.value)">${opts(VTYPES,f.type,'All types')}</select>
       <select class="inp" onchange="setF('vh','loc',this.value)">${opts([...new Set(S.vehicles.map(v=>v.location))],f.loc,'All locations')}</select>
       <button class="btn btn-sm" onclick="clearF('vh')">Clear</button>
-      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openVeh()">${icon('plus',14)} Add vehicle</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel('vTable','Vehicles_Fleet')">${icon('dl',14)} Export to Excel</button>
+      <button class="btn btn-sm btn-cool" onclick="openVeh()">${icon('plus',14)} Add vehicle</button>
     </div>
     <div id="vTable">${vTable(list)}</div>
   </div>`;
@@ -1727,7 +1948,7 @@ function vehHistory(id){
         <td class="mono">${r.timeIn?fmtTime(r.timeIn):'—'}</td><td class="mono">${r.timeOut?fmtTime(r.timeOut):'—'}</td>
         <td class="mono">${r.hours!=null?r.hours:'—'}</td><td>${bdg(r.status)}</td></tr>`).join('')}</tbody></table></div>`
       :`<div class="t-empty"><b>No trips recorded</b>${esc(v.reg)} has not been assigned to a service request yet.</div>`,
-    footer:`<button class="btn" onclick="closeModal()">Close</button>`});
+    footer:`<button class="btn btn-cool" onclick="exportTableToExcel(this.closest('.modal').querySelector('table'),'Vehicle_History')">${icon('dl',14)} Export to Excel</button><button class="btn" onclick="closeModal()">Close</button>`});
 }
 
 /* =====================================================================
@@ -1815,7 +2036,10 @@ function vVehMon(){
 function vAccess(){
   return `<div class="card">
     <div class="card-h"><div><h3>Dashboard access users</h3><div class="eyebrow" style="margin-top:2px">Who can open the operations dashboard</div></div>
-      <button class="btn btn-sm btn-cool" onclick="openAccess()">${icon('plus',14)} Grant access</button></div>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn btn-sm btn-cool" onclick="exportTableToExcel(this.closest('.card').querySelector('table'),'Dashboard_Access_Users')">${icon('dl',14)} Export to Excel</button>
+        <button class="btn btn-sm btn-cool" onclick="openAccess()">${icon('plus',14)} Grant access</button>
+      </div></div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>User</th><th>Role</th><th>Email</th><th>Access scope</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
       <tbody>${S.dashAccess.length?S.dashAccess.map(a=>{const u=user(a.userId)||{name:'Unknown',role:'—',email:'—'};return `<tr>
@@ -1842,17 +2066,285 @@ function openAccess(){
     body:`<div class="field"><label>User</label><select class="inp" id="acU">${opts(avail.map(u=>({v:u.id,l:u.name+' — '+u.role})),'','Select user')}</select></div>
       <div class="field"><label>Access scope</label><select class="inp" id="acS">${opts(['Full dashboard','Operations + reports','Reports only','Own team only'],'Reports only','Select')}</select></div>`,
     footer:`<button class="btn l" onclick="closeModal()">Cancel</button><button class="btn btn-cool" onclick="saveAccess()">Grant access</button>`});
-}
-function saveAccess(){
-  const uId=$('#acU').value,scope=$('#acS').value;
-  if(!uId){toast('Select a user','Choose who should get dashboard access.','err');return}
-  S.dashAccess.push({id:uid('DA'),userId:uId,scope,enabled:true,lastLogin:null});
-  save();closeModal();render();toast('Access granted',user(uId).name+' — '+scope,'ok');
+function filterPettyCash(){
+  const f = F.pc, q = (f.q || '').toLowerCase();
+  return (S.pettyCash || []).filter(v => {
+    if(f.type && v.type !== f.type) return false;
+    if(f.userId && v.userId !== f.userId) return false;
+    if(f.from && v.date < f.from) return false;
+    if(f.to && v.date > f.to) return false;
+    if(q && ![v.particulars, v.vchNo, v.type, v.notes, v.date, v.prefix, (user(v.userId)||{}).name].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
 }
 
-/* =====================================================================
-   REPORTS
-   ===================================================================== */
+function vPettyCash(){
+  const f = F.pc;
+  const list = filterPettyCash();
+  const all = S.pettyCash || [];
+  
+  const totalDebit = all.reduce((sum, v) => sum + (v.debit || 0), 0);
+  const totalCredit = all.reduce((sum, v) => sum + (v.credit || 0), 0);
+  const closingBalance = totalDebit - totalCredit;
+
+  return `
+  <div class="stat-grid" style="margin-bottom:18px">
+    ${statCard('Total Receipts (Debit)', 'AED ' + totalDebit.toLocaleString('en-US', {minimumFractionDigits:2}), 'Total cash received', 'c')}
+    ${statCard('Total Payments (Credit)', 'AED ' + totalCredit.toLocaleString('en-US', {minimumFractionDigits:2}), 'Total cash paid out', 'h')}
+    ${statCard('Closing Balance', 'AED ' + closingBalance.toLocaleString('en-US', {minimumFractionDigits:2}), 'Net cash in hand (Davood Book)', closingBalance >= 0 ? 'd' : 'h')}
+    ${statCard('Total Vouchers', all.length, `${all.filter(v=>v.type==='Receipt').length} Receipts · ${all.filter(v=>v.type==='Payment').length} Payments`, 'v')}
+  </div>
+
+  <div class="card">
+    <div class="bar-tools">
+      <div class="search">${icon('search',15)}<input class="inp" placeholder="Search particulars, voucher no, employee, notes..." value="${esc(f.q)}" oninput="F.pc.q=this.value;$('#pcTable').innerHTML=pcTable(filterPettyCash())"></div>
+      <select class="inp" onchange="setF('pc','type',this.value)">${opts(['Receipt','Payment'], f.type, 'All Types')}</select>
+      <select class="inp" onchange="setF('pc','userId',this.value)">${opts(S.users.map(u=>({v:u.id,l:u.name+' ('+u.empId+')'})), f.userId, 'All Employees / Users')}</select>
+      <input class="inp" type="date" value="${f.from}" onchange="setF('pc','from',this.value)" title="From Date">
+      <input class="inp" type="date" value="${f.to}" onchange="setF('pc','to',this.value)" title="To Date">
+      <button class="btn btn-sm" onclick="clearF('pc')">Clear</button>
+      <button class="btn btn-sm btn-cool" onclick="exportTableToExcel('pcTable','Petty_Cash_Ledger')">${icon('dl',14)} Export to Excel</button>
+      <button class="btn btn-sm" onclick="printPettyCashReport()">${icon('dl',14)} Print Statement</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="openVoucher()">${icon('plus',14)} Record Voucher</button>
+    </div>
+    <div id="pcTable">${pcTable(list)}</div>
+  </div>`;
+}
+
+function pcTable(list){
+  if(!list.length) return `<div class="t-empty"><b>No petty cash entries match</b>Try clearing filters or search query.</div>`;
+  
+  let running = 0;
+  const sorted = list.slice().sort((a,b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+
+  return `<div class="tbl-wrap"><table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Prefix</th>
+      <th>Particulars</th>
+      <th>Belongs To (User)</th>
+      <th>Vch Type</th>
+      <th>Vch No.</th>
+      <th style="text-align:right">Debit (In)</th>
+      <th style="text-align:right">Credit (Out)</th>
+      <th style="text-align:right">Balance</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${sorted.map(v => {
+      running += (v.debit || 0) - (v.credit || 0);
+      const isReceipt = v.type === 'Receipt';
+      const u = v.userId ? user(v.userId) : null;
+      return `<tr>
+        <td class="mono" style="font-size:12px;white-space:nowrap">${esc(v.date)}</td>
+        <td><b style="color:${v.prefix==='Cr'?'var(--cool)':'var(--warm)'}">${esc(v.prefix || (isReceipt?'Cr':'Dr'))}</b></td>
+        <td><b>${esc(v.particulars)}</b>${v.notes ? `<div style="color:var(--txt-3);font-size:11.5px">${esc(v.notes)}</div>` : ''}</td>
+        <td>${u ? `<div class="who">${av(u.name,24)}<div><b>${esc(u.name)}</b><small>${esc(u.empId)}</small></div></div>` : '<span style="color:var(--txt-3)">—</span>'}</td>
+        <td>${bdg(v.type === 'Receipt' ? 'Closed' : 'Work Started')}</td>
+        <td class="mono" style="font-size:12px">${esc(v.vchNo)}</td>
+        <td class="mono" style="text-align:right;color:${v.debit?'var(--done)':'var(--txt-3)'}">${v.debit ? v.debit.toLocaleString('en-US',{minimumFractionDigits:2}) : '—'}</td>
+        <td class="mono" style="text-align:right;color:${v.credit?'var(--hot)':'var(--txt-3)'}">${v.credit ? v.credit.toLocaleString('en-US',{minimumFractionDigits:2}) : '—'}</td>
+        <td class="mono" style="text-align:right;font-weight:600">${running.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+        <td>
+          <div class="acts">
+            <button class="btn btn-icon" title="Edit" onclick="openVoucher('${v.id}')">${icon('pen',14)}</button>
+            <button class="btn btn-icon btn-danger" title="Delete" onclick="deleteVoucher('${v.id}')">${icon('trash',14)}</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody>
+  </table></div>`;
+}
+
+let vcdraft = null;
+
+function openVoucher(id){
+  const item = id ? (S.pettyCash || []).find(v => v.id === id) : null;
+  const isEdit = !!item;
+  const todayStr = new Date().toISOString().split('T')[0];
+  
+  const seq = (S.pettyCash || []).length + 101;
+  const defaultVchNo = item ? item.vchNo : 'CB PV2026 ' + String(8000 + seq);
+
+  vcdraft = item ? Object.assign({}, item) : {
+    id: uid('PC'),
+    date: todayStr,
+    prefix: 'Dr',
+    particulars: '',
+    type: 'Payment',
+    vchNo: defaultVchNo,
+    userId: null,
+    debit: 0,
+    credit: 0,
+    notes: ''
+  };
+  vcdraft.__edit = isEdit;
+
+  const accounts = [
+    'Abu Dhabi Commercial Bank', 'Salary Payable', 'Wages Expense', 'Over Time Expense',
+    'Refreshment Expense', 'Vehicle Maintenance', 'Accomadation Exp.', 'Medical Expense',
+    'Parking Charge', 'Printing & Stationary', 'Sharjah Oxygen Company',
+    'Nesto Hyper Market LLC (Branch), Nad Al Hamar', 'Nesto Hypermarket LLC, Branch, Al Nahda 2, Dubai',
+    'Nesto Hypermarket Sole Proprietorship Br 8, Maleha, Sharjah', 'Taybat Fresh Poultry Tr. Branch 1',
+    'Zayan Building Material Trading LLC', 'Haste Trading LLC', 'Cash in Hand - Biju'
+  ];
+
+  modal({
+    title: isEdit ? 'Edit Petty Cash Voucher' : 'Record Petty Cash Voucher',
+    eyebrow: 'Cash in Hand — Davood Book',
+    wide: false,
+    body: `
+    <datalist id="dlAccounts">
+      ${accounts.map(a => `<option value="${esc(a)}">`).join('')}
+    </datalist>
+    <div class="grid2">
+      <div class="field">
+        <label>Date</label>
+        <input class="inp" type="date" value="${esc(vcdraft.date)}" onchange="vcdraft.date=this.value">
+      </div>
+      <div class="field">
+        <label>Voucher Type</label>
+        <select class="inp" onchange="vcdraft.type=this.value; vcdraft.prefix=(this.value==='Receipt'?'Cr':'Dr'); $('#vchPrefixLbl').textContent=vcdraft.prefix;">
+          <option value="Payment"${vcdraft.type==='Payment'?' selected':''}>Payment (Money Out)</option>
+          <option value="Receipt"${vcdraft.type==='Receipt'?' selected':''}>Receipt (Money In)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>Voucher No.</label>
+        <input class="inp mono" value="${esc(vcdraft.vchNo)}" oninput="vcdraft.vchNo=this.value">
+      </div>
+      <div class="field">
+        <label>Debit / Credit Tag</label>
+        <div class="inp mono" style="background:#f4f6f9;font-weight:700" id="vchPrefixLbl">${esc(vcdraft.prefix || 'Dr')}</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Belongs To (User / Employee)</label>
+      <select class="inp" onchange="vcdraft.userId=this.value||null">
+        ${opts(S.users.map(u=>({v:u.id,l:u.name+' — '+u.role+' ('+u.empId+')'})), vcdraft.userId, 'Unassigned / Davood Book')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Particulars / Account</label>
+      <input class="inp" list="dlAccounts" placeholder="e.g. Refreshment Expense, Vehicle Maintenance..." value="${esc(vcdraft.particulars)}" oninput="vcdraft.particulars=this.value">
+    </div>
+    <div class="field">
+      <label>Amount (AED)</label>
+      <input class="inp mono" type="number" step="0.01" placeholder="0.00" value="${vcdraft.debit || vcdraft.credit || ''}" oninput="
+        const val = parseFloat(this.value) || 0;
+        if(vcdraft.type==='Receipt'){ vcdraft.debit=val; vcdraft.credit=0; }
+        else { vcdraft.credit=val; vcdraft.debit=0; }
+      ">
+    </div>
+    <div class="field">
+      <label>Remarks / Notes</label>
+      <textarea class="inp" placeholder="Optional details..." oninput="vcdraft.notes=this.value">${esc(vcdraft.notes)}</textarea>
+    </div>`,
+    footer: `<button class="btn l" onclick="closeModal()">Cancel</button>
+             <button class="btn btn-cool" onclick="saveVoucher()">${isEdit ? 'Save Changes' : 'Record Voucher'}</button>`
+  });
+}
+
+function saveVoucher(){
+  if(!vcdraft.particulars.trim()){ toast('Particulars required', 'Please enter account or recipient name.', 'err'); return; }
+  if(!vcdraft.debit && !vcdraft.credit){ toast('Amount required', 'Please enter a non-zero voucher amount.', 'err'); return; }
+  
+  const edit = vcdraft.__edit; delete vcdraft.__edit;
+  S.pettyCash = S.pettyCash || [];
+  
+  if(edit){
+    const idx = S.pettyCash.findIndex(v => v.id === vcdraft.id);
+    if(idx !== -1) S.pettyCash[idx] = vcdraft;
+    toast('Voucher updated', vcdraft.vchNo + ' updated.', 'ok');
+  } else {
+    S.pettyCash.push(vcdraft);
+    toast('Voucher recorded', vcdraft.vchNo + ' recorded.', 'ok');
+  }
+  
+  save(); closeModal(); render();
+}
+
+function deleteVoucher(id){
+  const item = (S.pettyCash || []).find(v => v.id === id);
+  if(!item) return;
+  confirmBox('Delete voucher ' + item.vchNo + '?', 'Are you sure you want to remove this petty cash voucher?', 'Delete', 'btn-danger', () => {
+    S.pettyCash = (S.pettyCash || []).filter(v => v.id !== id);
+    save(); closeModal(); render();
+    toast('Voucher deleted', item.vchNo + ' deleted.', 'warn');
+  });
+}
+
+function printPettyCashReport(){
+  const all = S.pettyCash || [];
+  const sorted = all.slice().sort((a,b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+  const totalDebit = all.reduce((sum, v) => sum + (v.debit || 0), 0);
+  const totalCredit = all.reduce((sum, v) => sum + (v.credit || 0), 0);
+  const closingBalance = totalDebit - totalCredit;
+
+  modal({
+    title: 'Cash in Hand — Davood Book Report',
+    eyebrow: 'COOL BOX ELECTROMECHANICAL WORKS LLC',
+    wide: true,
+    body: `
+    <div id="printArea" style="font-family:Inter,sans-serif;color:#0C1725;padding:10px">
+      <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #0C1725;padding-bottom:12px">
+        <h2 style="margin:0;font-family:Archivo;font-size:20px;letter-spacing:-.02em">COOL BOX ELECTROMECHANICAL WORKS LLC</h2>
+        <div style="font-size:12px;color:#4B5D73;margin-top:4px">Ajman Industrial Area 1, Ajman, UAE. | Tel.: +971 50 2270 824 | info@coolbox.ae</div>
+        <div style="font-size:12px;font-family:'IBM Plex Mono';margin-top:2px">TRN: 104766050900003</div>
+        <h3 style="margin:12px 0 2px;font-size:16px;text-decoration:underline">Cash in Hand - Davood Book</h3>
+        <div style="font-size:12px;font-family:'IBM Plex Mono';color:#4B5D73">Statement Period: August 2026</div>
+      </div>
+      <div class="tbl-wrap">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#FAFBFD;border-bottom:2px solid #CFD8E3">
+              <th style="padding:8px;text-align:left">Date</th>
+              <th style="padding:8px;text-align:left">Prefix</th>
+              <th style="padding:8px;text-align:left">Particulars</th>
+              <th style="padding:8px;text-align:left">Belongs To</th>
+              <th style="padding:8px;text-align:left">Vch Type</th>
+              <th style="padding:8px;text-align:left">Vch No.</th>
+              <th style="padding:8px;text-align:right">Debit (AED)</th>
+              <th style="padding:8px;text-align:right">Credit (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(v => {
+              const u = v.userId ? user(v.userId) : null;
+              return `
+              <tr style="border-bottom:1px solid #E2E7EE">
+                <td class="mono" style="padding:6px 8px">${esc(v.date)}</td>
+                <td style="padding:6px 8px"><b>${esc(v.prefix || (v.type==='Receipt'?'Cr':'Dr'))}</b></td>
+                <td style="padding:6px 8px"><b>${esc(v.particulars)}</b></td>
+                <td style="padding:6px 8px">${u ? esc(u.name) : '—'}</td>
+                <td style="padding:6px 8px">${esc(v.type)}</td>
+                <td class="mono" style="padding:6px 8px">${esc(v.vchNo)}</td>
+                <td class="mono" style="padding:6px 8px;text-align:right">${v.debit ? v.debit.toFixed(2) : ''}</td>
+                <td class="mono" style="padding:6px 8px;text-align:right">${v.credit ? v.credit.toFixed(2) : ''}</td>
+              </tr>
+            `}).join('')}
+            <tr style="border-top:2px solid #0C1725;border-bottom:1px solid #0C1725;font-weight:700">
+              <td colspan="6" style="padding:8px;text-align:right">Total</td>
+              <td class="mono" style="padding:8px;text-align:right">${totalDebit.toFixed(2)}</td>
+              <td class="mono" style="padding:8px;text-align:right">${totalCredit.toFixed(2)}</td>
+            </tr>
+            <tr style="border-bottom:2px double #0C1725;font-weight:700;background:#E3F4F8">
+              <td colspan="6" style="padding:8px;text-align:right">Dr Closing Balance</td>
+              <td class="mono" style="padding:8px;text-align:right;color:#0E8FA8">${closingBalance.toFixed(2)}</td>
+              <td style="padding:8px"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`,
+    footer: `<button class="btn l" onclick="closeModal()">Close</button>
+             <button class="btn btn-cool" onclick="window.print()">${icon('dl',14)} Print Statement</button>`
+  });
 let repTab='service';
 function vReports(){
   const T=[['service','Service request report'],['employee','Employee work report'],['vehicle','Vehicle report'],['amc','AMC / Non-AMC report']];
@@ -1861,7 +2353,6 @@ function vReports(){
     ${repTab==='service'?repService():repTab==='employee'?repEmployee():repTab==='vehicle'?repVehicle():repAmc()}
   </div>`;
 }
-const csvBtn=`<button class="btn btn-sm" style="margin-left:auto" onclick="toast('Export queued','A CSV export would download here. This prototype keeps the data on screen.')">${icon('dl',14)} Export</button>`;
 function repService(){
   const f=F.sr,list=filterSR();
   const hrs=list.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0);
@@ -1873,7 +2364,9 @@ function repService(){
       <select class="inp" onchange="setF('sr','amc',this.value)">${opts(['AMC','Non-AMC'],f.amc,'AMC / Non-AMC')}</select>
       <select class="inp" onchange="setF('sr','sup',this.value)">${opts(S.users.filter(u=>u.role==='Supervisor').map(u=>({v:u.id,l:u.name})),f.sup,'All supervisors')}</select>
       <select class="inp" onchange="setF('sr','status',this.value)">${opts(SRSTATUS,f.status,'All statuses')}</select>
-      <button class="btn btn-sm" onclick="clearF('sr')">Clear</button>${csvBtn}</div>
+      <button class="btn btn-sm" onclick="clearF('sr')">Clear</button>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel(this.closest('.card').querySelector('table'),'Service_Request_Report')">${icon('dl',14)} Export to Excel</button>
+    </div>
     <div class="card-b">
       <div class="stat-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
         ${statCard('Requests',list.length,'In selection','c')}
@@ -1907,7 +2400,10 @@ function repEmployee(){
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}},
         scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}}}}}));
   });
-  return `<div class="bar-tools"><span class="eyebrow">Jobs and hours per employee, all time</span>${csvBtn}</div>
+  return `<div class="bar-tools">
+      <span class="eyebrow">Jobs and hours per employee, all time</span>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel(this.closest('.card').querySelector('table'),'Employee_Work_Report')">${icon('dl',14)} Export to Excel</button>
+    </div>
     <div class="card-b">
       <div class="chart-box" style="height:270px;margin-bottom:18px"><canvas id="cEmpRep"></canvas></div>
       <div class="tbl-wrap card" style="box-shadow:none"><table>
@@ -1923,7 +2419,10 @@ function repEmployee(){
 function repVehicle(){
   const rows=S.vehicles.map(v=>{const j=S.requests.filter(r=>r.vehId===v.id);
     return {v,jobs:j.length,hrs:j.filter(r=>r.hours).reduce((a,r)=>a+r.hours,0)}}).sort((a,b)=>b.jobs-a.jobs);
-  return `<div class="bar-tools"><span class="eyebrow">Fleet utilisation, all time</span>${csvBtn}</div>
+  return `<div class="bar-tools">
+      <span class="eyebrow">Fleet utilisation, all time</span>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel(this.closest('.card').querySelector('table'),'Vehicle_Report')">${icon('dl',14)} Export to Excel</button>
+    </div>
     <div class="card-b"><div class="tbl-wrap card" style="box-shadow:none"><table>
       <thead><tr><th>Vehicle</th><th>Type</th><th>Driver</th><th>Jobs</th><th>Working hours</th><th>Avg / job</th><th>Location</th><th>Service due</th><th>Current status</th><th></th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td><b class="mono">${esc(r.v.reg)}</b><div class="eyebrow">${esc(r.v.make)} ${esc(r.v.model)}</div></td>
@@ -1945,7 +2444,10 @@ function repAmc(){
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:9,usePointStyle:true,pointStyle:'rectRounded'}}},
         scales:{y:{beginAtZero:true,grid:{color:'#EEF1F5'},ticks:{precision:0}},x:{grid:{display:false}}}}}));
   });
-  return `<div class="bar-tools"><span class="eyebrow">Contract mix by client</span>${csvBtn}</div>
+  return `<div class="bar-tools">
+      <span class="eyebrow">Contract mix by client</span>
+      <button class="btn btn-sm btn-cool" style="margin-left:auto" onclick="exportTableToExcel(this.closest('.card').querySelector('table'),'AMC_Report')">${icon('dl',14)} Export to Excel</button>
+    </div>
     <div class="card-b">
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px">
         ${statCard('AMC requests',amc,(amc/S.requests.length*100).toFixed(0)+'% of volume','c')}

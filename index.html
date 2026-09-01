@@ -2066,6 +2066,17 @@ function openAccess(){
     body:`<div class="field"><label>User</label><select class="inp" id="acU">${opts(avail.map(u=>({v:u.id,l:u.name+' — '+u.role})),'','Select user')}</select></div>
       <div class="field"><label>Access scope</label><select class="inp" id="acS">${opts(['Full dashboard','Operations + reports','Reports only','Own team only'],'Reports only','Select')}</select></div>`,
     footer:`<button class="btn l" onclick="closeModal()">Cancel</button><button class="btn btn-cool" onclick="saveAccess()">Grant access</button>`});
+}
+function saveAccess(){
+  const uId=$('#acU').value,scope=$('#acS').value;
+  if(!uId){toast('Select a user','Choose who should get dashboard access.','err');return}
+  S.dashAccess.push({id:uid('DA'),userId:uId,scope,enabled:true,lastLogin:null});
+  save();closeModal();render();toast('Access granted',user(uId).name+' — '+scope,'ok');
+}
+
+/* =====================================================================
+   PETTY CASH MANAGEMENT SYSTEM (Cash in Hand - Davood Book)
+   ===================================================================== */
 function filterPettyCash(){
   const f = F.pc, q = (f.q || '').toLowerCase();
   return (S.pettyCash || []).filter(v => {
@@ -2345,6 +2356,7 @@ function printPettyCashReport(){
     footer: `<button class="btn l" onclick="closeModal()">Close</button>
              <button class="btn btn-cool" onclick="window.print()">${icon('dl',14)} Print Statement</button>`
   });
+}
 let repTab='service';
 function vReports(){
   const T=[['service','Service request report'],['employee','Employee work report'],['vehicle','Vehicle report'],['amc','AMC / Non-AMC report']];

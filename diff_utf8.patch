@@ -1,0 +1,235 @@
+﻿diff --git a/index1.html b/index.html
+index 342c704..286f4e7 100644
+--- a/index1.html
++++ b/index.html
+@@ -265,38 +265,51 @@ function hoursBetween(timeIn, timeOut) {
+   return mins / 60;
+ }
+ 
++function getJobContractTypeMeta(job) {
++  if (!job) return { label: "Non-AMC", code: "non_amc", color: COLORS.steel, bg: "#E7ECEF" };
++  const ct = job.contractType || (job.amc ? "amc" : "non_amc");
++  if (ct === "amc") {
++    return { label: "AMC", code: "amc", color: COLORS.go, bg: "#E4F1E9" };
++  }
++  if (ct === "non_amc_with_amc_ref") {
++    const refStr = job.amcRefNo ? `Non-AMC (Ref: ${job.amcRefNo})` : "Non-AMC (with AMC Ref)";
++    return { label: refStr, code: "non_amc_with_amc_ref", color: "#6B46C1", bg: "#F3E8FF", refNo: job.amcRefNo || "" };
++  }
++  return { label: "Non-AMC", code: "non_amc", color: COLORS.steel, bg: "#E7ECEF" };
++}
++
+ const SEED_JOBS = [
+   {
+     id: "j2001", jobOrderNo: "2001", projectNo: "PRJ-9041", clientName: "Nesto Hypermarket", quotationRef: "QT-2026-104",
+-    area: "Nad Al Hamar", emirates: "Dubai", scope: "Ductable AC Gas Charging & Filter Servicing", priority: "High", amc: true,
++    area: "Nad Al Hamar", emirates: "Dubai", scope: "Ductable AC Gas Charging & Filter Servicing", priority: "High", contractType: "amc", amc: true, amcRefNo: "",
+     workerIds: ["w10", "w3", "w11"], teamLeadId: "w10", vehicleId: "v0", avgOneWayKm: "18", status: "In Progress", estimatedDays: "1",
+     createdAt: Date.now() - 86400000 * 2, createdDate: todayISO(), assignedDate: todayISO(),
+     invoiceStatus: "Invoiced", invoiceDate: todayISO(), invoiceNumber: "INV-9041", invoiceAmount: "8500", budgetAmount: "8500", marginPercent: "25",
+   },
+   {
+     id: "j2002", jobOrderNo: "2002", projectNo: "PRJ-9042", clientName: "Al Maya Supermarket", quotationRef: "QT-2026-105",
+-    area: "King Faisal", emirates: "Sharjah", scope: "Chiller Water Line Strainer Cleaning & Actuator Replacement", priority: "High", amc: false,
++    area: "King Faisal", emirates: "Sharjah", scope: "Chiller Water Line Strainer Cleaning & Actuator Replacement", priority: "High", contractType: "non_amc_with_amc_ref", amc: false, amcRefNo: "AMC-2025-9921",
+     workerIds: ["w0", "w4"], teamLeadId: "w0", vehicleId: "v1", avgOneWayKm: "24", status: "Assigned", estimatedDays: "2",
+     createdAt: Date.now() - 86400000 * 1, createdDate: todayISO(), assignedDate: todayISO(),
+     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "12000", marginPercent: "30",
+   },
+   {
+     id: "j2003", jobOrderNo: "2003", projectNo: "PRJ-8998", clientName: "Gulf Cold Store LLC", quotationRef: "QT-2026-088",
+-    area: "Jebel Ali Industrial", emirates: "Dubai", scope: "Compressor Overhaul & Blower Motor Bearing Replacement", priority: "Medium", amc: true,
++    area: "Jebel Ali Industrial", emirates: "Dubai", scope: "Compressor Overhaul & Blower Motor Bearing Replacement", priority: "Medium", contractType: "amc", amc: true, amcRefNo: "",
+     workerIds: ["w1", "w5", "w12"], teamLeadId: "w1", vehicleId: "v2", avgOneWayKm: "42", status: "Completed", estimatedDays: "3",
+     createdAt: Date.now() - 86400000 * 5, createdDate: todayISO(), assignedDate: todayISO(),
+     invoiceStatus: "Paid", invoiceDate: todayISO(), invoiceNumber: "INV-8998", invoiceAmount: "16500", budgetAmount: "16500", marginPercent: "22",
+   },
+   {
+     id: "j2004", jobOrderNo: "2004", projectNo: "PRJ-9045", clientName: "Last Chance Wholesale Market", quotationRef: "QT-2026-112",
+-    area: "Mia Mall", emirates: "Ajman", scope: "Thermostat Wire Replacement & Airflow Testing", priority: "Low", amc: true,
++    area: "Mia Mall", emirates: "Ajman", scope: "Thermostat Wire Replacement & Airflow Testing", priority: "Low", contractType: "non_amc", amc: false, amcRefNo: "",
+     workerIds: ["w2", "w6"], teamLeadId: "w2", vehicleId: "v3", avgOneWayKm: "30", status: "Assigned", estimatedDays: "1",
+     createdAt: Date.now() - 86400000 * 3, createdDate: todayISO(), assignedDate: todayISO(),
+     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "4800", marginPercent: "20",
+   },
+   {
+     id: "j2005", jobOrderNo: "2005", projectNo: "PRJ-9048", clientName: "Union Coop Supermarket", quotationRef: "QT-2026-115",
+-    area: "Al Quoz", emirates: "Dubai", scope: "Emergency Chiller Cooling Failure Inspection", priority: "High", amc: false,
++    area: "Al Quoz", emirates: "Dubai", scope: "Emergency Chiller Cooling Failure Inspection", priority: "High", contractType: "non_amc_with_amc_ref", amc: false, amcRefNo: "AMC-2026-4402",
+     workerIds: ["w15", "w7"], teamLeadId: "w15", vehicleId: "v4", avgOneWayKm: "12", status: "In Progress", estimatedDays: "1",
+     createdAt: Date.now() - 86400000 * 1, createdDate: todayISO(), assignedDate: todayISO(),
+     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "9200", marginPercent: "28",
+@@ -503,7 +516,8 @@ function exportLaborCostReport(workers, jobOrders, entries) {
+       "Time In": e.timeIn,
+       "Time Out": e.timeOut,
+       "Working Hours": Number((e.hours || 0).toFixed(4)),
+-      "AMC / Non AMC": job.amc ? "Amc" : "Non Amc",
++      "Contract Type": getJobContractTypeMeta(job).label,
++      "AMC Reference No": job?.amcRefNo || "",
+       "No of Days": Number((e.days || 0).toFixed(6)),
+       "Cost": Number((e.cost || 0).toFixed(2)),
+       "Invoice Status": job.invoiceStatus || "",
+@@ -604,7 +618,8 @@ function exportBoardReport(jobs, workers, vehicles, cash, entries, otherExpenses
+       "Status": j.status,
+       "Crew": crew,
+       "Vehicle": f.vehicle ? f.vehicle.name : "",
+-      "AMC / Non AMC": j.amc ? "Amc" : "Non Amc",
++      "Contract Type": getJobContractTypeMeta(j).label,
++      "AMC Reference No": j.amcRefNo || "",
+       "Ticket Created Date": j.createdDate || "",
+       "Date Assigned": j.assignedDate || j.createdDate || "",
+       "Budget": f.budget || "",
+@@ -1271,8 +1286,16 @@ function App() {
+       const date = excelDateToISO(dateVal);
+       const timeIn = excelTimeToHHMM(rowField(row, "Time In", "Time In "));
+       const timeOut = excelTimeToHHMM(rowField(row, "Time Out"));
+-      const amcRaw = String(rowField(row, "AMC / Non AMC")).trim();
+-      const amc = /^amc$/i.test(amcRaw);
++      const amcRaw = String(rowField(row, "Contract Type", "AMC / Non AMC")).trim();
++      const amcRefRaw = String(rowField(row, "AMC Reference No", "AMC Ref No", "AMC Ref")).trim();
++      let contractType = "non_amc";
++      if (/^amc$/i.test(amcRaw)) {
++        contractType = "amc";
++      } else if (/ref/i.test(amcRaw) || amcRefRaw) {
++        contractType = "non_amc_with_amc_ref";
++      }
++      const amc = contractType === "amc";
++      const amcRefNo = amcRefRaw;
+       const categoryCode = String(rowField(row, "Column1", "LAB_CAT")).trim() || "T";
+       const costRaw = Number(rowField(row, "Cost")) || 0;
+       const hoursRaw = Number(rowField(row, "Working Hours"));
+@@ -1291,7 +1314,9 @@ function App() {
+           emirates: String(rowField(row, "Emirates")) || "Dubai",
+           scope: String(rowField(row, "Scope")),
+           priority: "Medium",
++          contractType,
+           amc,
++          amcRefNo,
+           workerIds: [],
+           vehicleId: "",
+           avgOneWayKm: "",
+@@ -1819,9 +1844,14 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, entries, cas
+             <Truck size={10} /> {vehicle.name}{job.avgOneWayKm ? ` · ${job.avgOneWayKm} km one-way (${(Number(job.avgOneWayKm) * 2).toFixed(0)} km round-trip)` : ""}{job.trips ? ` · ${job.trips} trip${Number(job.trips) === 1 ? "" : "s"}` : ""}
+           </span>
+         )}
+-        {job.amc && (
+-          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "#E4F1E9", color: COLORS.go }}>AMC</span>
+-        )}
++        {(() => {
++          const meta = getJobContractTypeMeta(job);
++          return (
++            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }} title={meta.refNo ? `AMC Ref: ${meta.refNo}` : ""}>
++              {meta.label}
++            </span>
++          );
++        })()}
+       </div>
+ 
+       {targetCost > 0 && (() => {
+@@ -1911,6 +1941,8 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, onClose,
+   const [area, setArea] = useState(job.area || "");
+   const [emirates, setEmirates] = useState(job.emirates || "Dubai");
+   const [scope, setScope] = useState(job.scope || "");
++  const [contractType, setContractType] = useState(job.contractType || (job.amc ? "amc" : "non_amc"));
++  const [amcRefNo, setAmcRefNo] = useState(job.amcRefNo || "");
+   const [selected, setSelected] = useState(job.workerIds);
+   const [vehicleId, setVehicleId] = useState(job.vehicleId || "");
+   const [avgOneWayKm, setAvgOneWayKm] = useState(job.avgOneWayKm || "");
+@@ -1952,6 +1984,18 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, onClose,
+               {EMIRATES.map((e) => <option key={e} value={e}>{e}</option>)}
+             </select>
+           </Field>
++          <Field label="Contract Type">
++            <div className="flex gap-1 mb-1">
++              <button type="button" onClick={() => setContractType("amc")} className="flex-1 text-[10px] font-bold py-1 rounded" style={{ border: `1.5px solid ${COLORS.go}`, background: contractType === "amc" ? COLORS.go : "transparent", color: contractType === "amc" ? "#fff" : COLORS.go }}>AMC</button>
++              <button type="button" onClick={() => setContractType("non_amc")} className="flex-1 text-[10px] font-bold py-1 rounded" style={{ border: `1.5px solid ${COLORS.steel}`, background: contractType === "non_amc" ? COLORS.steel : "transparent", color: contractType === "non_amc" ? "#fff" : COLORS.steel }}>NON-AMC</button>
++              <button type="button" onClick={() => setContractType("non_amc_with_amc_ref")} className="flex-1 text-[9.5px] font-bold py-1 rounded text-center leading-tight" style={{ border: `1.5px solid #6B46C1`, background: contractType === "non_amc_with_amc_ref" ? "#6B46C1" : "transparent", color: contractType === "non_amc_with_amc_ref" ? "#fff" : "#6B46C1" }}>NON-AMC (AMC REF)</button>
++            </div>
++          </Field>
++          {contractType === "non_amc_with_amc_ref" && (
++            <Field label="AMC Reference Number" hint="Enter linked AMC Contract Ref #">
++              <input type="text" className={inputCls} style={inputStyle} value={amcRefNo} onChange={(e) => setAmcRefNo(e.target.value)} placeholder="e.g. AMC-2025-9921" />
++            </Field>
++          )}
+           <Field label="Scope"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 50 }} value={scope} onChange={(e) => setScope(e.target.value)} /></Field>
+ 
+           <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 mt-1" style={{ color: COLORS.steelLight }}>Crew</div>
+@@ -2041,6 +2085,8 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, onClose,
+             <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
+             <button onClick={() => onSave({
+               clientName, projectNo, quotationRef, area, emirates, scope,
++              contractType, amcRefNo: contractType === "non_amc_with_amc_ref" ? amcRefNo.trim() : "",
++              amc: contractType === "amc",
+               workerIds: selected, vehicleId, avgOneWayKm, trips, budgetAmount, marginPercent, teamLeadId, estimatedDays, assignedDate: todayISO(),
+             })}
+               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide cursor-pointer" style={{ background: COLORS.safety, color: COLORS.steelDark }}>
+@@ -2095,7 +2141,7 @@ function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
+   const nextNo = 2001 + jobOrders.length;
+   const [form, setForm] = useState({
+     jobOrderNo: String(nextNo), projectNo: "", clientName: "", quotationRef: "",
+-    area: "", emirates: "Dubai", scope: "", priority: "Medium", amc: false,
++    area: "", emirates: "Dubai", scope: "", priority: "Medium", contractType: "non_amc", amcRefNo: "", amc: false,
+     workerIds: [], vehicleId: "", avgOneWayKm: "", trips: "1", estimatedDays: "1", budgetAmount: "", marginPercent: "", teamLeadId: "",
+   });
+   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+@@ -2130,7 +2176,7 @@ function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
+           </div>
+           <Field label="Scope of Work"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 70 }} value={form.scope} onChange={(e) => set("scope", e.target.value)} placeholder="Describe the job…" /></Field>
+ 
+-          <div className="grid grid-cols-2 gap-x-4">
++          <div className="grid grid-cols-2 gap-x-4 mb-1">
+             <Field label="Priority">
+               <div className="flex gap-1.5">
+                 {PRIORITIES.map((p) => (
+@@ -2143,13 +2189,20 @@ function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
+               </div>
+             </Field>
+             <Field label="Contract Type">
+-              <div className="flex gap-1.5">
+-                <button type="button" onClick={() => set("amc", true)} className="flex-1 text-xs font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.go}`, background: form.amc ? COLORS.go : "transparent", color: form.amc ? "#fff" : COLORS.go }}>AMC</button>
+-                <button type="button" onClick={() => set("amc", false)} className="flex-1 text-xs font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.steel}`, background: !form.amc ? COLORS.steel : "transparent", color: !form.amc ? "#fff" : COLORS.steel }}>NON-AMC</button>
++              <div className="flex gap-1">
++                <button type="button" onClick={() => set("contractType", "amc")} className="flex-1 text-[10px] font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.go}`, background: form.contractType === "amc" ? COLORS.go : "transparent", color: form.contractType === "amc" ? "#fff" : COLORS.go }}>AMC</button>
++                <button type="button" onClick={() => set("contractType", "non_amc")} className="flex-1 text-[10px] font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.steel}`, background: form.contractType === "non_amc" ? COLORS.steel : "transparent", color: form.contractType === "non_amc" ? "#fff" : COLORS.steel }}>NON-AMC</button>
++                <button type="button" onClick={() => set("contractType", "non_amc_with_amc_ref")} className="flex-1 text-[9px] font-bold py-1 rounded-md text-center leading-tight" style={{ border: `1.5px solid #6B46C1`, background: form.contractType === "non_amc_with_amc_ref" ? "#6B46C1" : "transparent", color: form.contractType === "non_amc_with_amc_ref" ? "#fff" : "#6B46C1" }}>NON-AMC (AMC REF)</button>
+               </div>
+             </Field>
+           </div>
+ 
++          {form.contractType === "non_amc_with_amc_ref" && (
++            <Field label="AMC Reference Number" hint="Enter linked AMC Contract or Service Agreement Ref #">
++              <input type="text" className={inputCls} style={inputStyle} value={form.amcRefNo} onChange={(e) => set("amcRefNo", e.target.value)} placeholder="e.g. AMC-2025-9921" />
++            </Field>
++          )}
++
+           <div className="grid grid-cols-2 gap-x-4">
+             <Field label="Quoted Budget (AED)" hint="What was quoted to the client for this job.">
+               <input type="number" min="0" step="1" className={inputCls} style={inputStyle}
+@@ -2161,12 +2214,12 @@ function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
+             </Field>
+           </div>
+ 
+-          <Field label={`Assign Workers (${form.workerIds.length} selected)`}>
+-            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1 rounded-md" style={{ border: `1.5px solid ${COLORS.line}` }}>
++          <Field label="Assign Crew (click to select)">
++            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.line}` }}>
+               {activeWorkers.length === 0 && <div className="col-span-2 text-[11px] p-2" style={{ color: "#8A8F84" }}>No active workers. Reactivate someone in Roster first.</div>}
+               {activeWorkers.map((w) => (
+                 <button key={w.id} type="button" onClick={() => toggleWorker(w.id)}
+-                  className="flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium"
++                  className="flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium"
+                   style={{ background: form.workerIds.includes(w.id) ? "#E7ECEF" : "transparent", color: COLORS.ink }}>
+                   <span className="flex items-center gap-1.5">
+                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: availabilityMeta(computeWorkerStatus(w, jobOrders)).color }} />
+@@ -2244,7 +2297,10 @@ function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
+             <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
+             <button disabled={!canSubmit}
+               onClick={() => onSubmit({
+-                id: genId("j"), ...form, status: "Assigned", createdAt: Date.now(), createdDate: todayISO(), assignedDate: todayISO(),
++                id: genId("j"), ...form,
++                amc: form.contractType === "amc",
++                amcRefNo: form.contractType === "non_amc_with_amc_ref" ? form.amcRefNo.trim() : "",
++                status: "Assigned", createdAt: Date.now(), createdDate: todayISO(), assignedDate: todayISO(),
+                 invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "",
+               })}
+               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide"

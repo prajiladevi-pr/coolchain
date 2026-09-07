@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -94,9 +94,6 @@ const Truck = (p) => <Svg {...p}><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v
 const ClipboardList = (p) => <Svg {...p}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></Svg>;
 const Clock = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></Svg>;
 const User = (p) => <Svg {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Svg>;
-const Briefcase = (p) => <Svg {...p}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></Svg>;
-const Ticket = (p) => <Svg {...p}><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></Svg>;
-const AlertCircle = (p) => <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
 const Plus = (p) => <Svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Svg>;
 const X = (p) => <Svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Svg>;
 const Check = (p) => <Svg {...p}><polyline points="20 6 9 17 4 12"/></Svg>;
@@ -268,64 +265,38 @@ function hoursBetween(timeIn, timeOut) {
   return mins / 60;
 }
 
-function getJobContractTypeMeta(job) {
-  if (!job) return { label: "Non-AMC", code: "non_amc", color: COLORS.steel, bg: "#E7ECEF" };
-  const ct = job.contractType || (job.amc ? "amc" : "non_amc");
-  if (ct === "amc") {
-    return { label: "AMC", code: "amc", color: COLORS.go, bg: "#E4F1E9" };
-  }
-  if (ct === "non_amc_with_amc_ref") {
-    const refStr = job.amcRefNo ? `Non-AMC (Ref: ${job.amcRefNo})` : "Non-AMC (with AMC Ref)";
-    return { label: refStr, code: "non_amc_with_amc_ref", color: "#6B46C1", bg: "#F3E8FF", refNo: job.amcRefNo || "" };
-  }
-  return { label: "Non-AMC", code: "non_amc", color: COLORS.steel, bg: "#E7ECEF" };
-}
-
-const SEED_AMC_CONTRACTS = [
-  {
-    id: "amc_1", refNo: "AMC-2026-0005", clientName: "Nesto Hypermarket",
-    startDate: "2026-06-01", endDate: "2027-05-31", servicesPerYear: 6,
-    servicesPerIndoorUnit: 6, servicesPerOutdoorUnit: 3, invoiceFrequency: "Monthly"
-  },
-  {
-    id: "amc_2", refNo: "AMC-2025-9921", clientName: "Al Maya Supermarket",
-    startDate: "2026-01-01", endDate: "2026-12-31", servicesPerYear: 4,
-    servicesPerIndoorUnit: 4, servicesPerOutdoorUnit: 2, invoiceFrequency: "Quarterly"
-  }
-];
-
 const SEED_JOBS = [
   {
     id: "j2001", jobOrderNo: "2001", projectNo: "PRJ-9041", clientName: "Nesto Hypermarket", quotationRef: "QT-2026-104",
-    area: "Nad Al Hamar", emirates: "Dubai", scope: "Ductable AC Gas Charging & Filter Servicing", priority: "High", contractType: "amc", amc: true, amcRefNo: "AMC-2026-0005",
+    area: "Nad Al Hamar", emirates: "Dubai", scope: "Ductable AC Gas Charging & Filter Servicing", priority: "High", amc: true,
     workerIds: ["w10", "w3", "w11"], teamLeadId: "w10", vehicleId: "v0", avgOneWayKm: "18", status: "In Progress", estimatedDays: "1",
     createdAt: Date.now() - 86400000 * 2, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Invoiced", invoiceDate: todayISO(), invoiceNumber: "INV-9041", invoiceAmount: "8500", budgetAmount: "8500", marginPercent: "25",
   },
   {
     id: "j2002", jobOrderNo: "2002", projectNo: "PRJ-9042", clientName: "Al Maya Supermarket", quotationRef: "QT-2026-105",
-    area: "King Faisal", emirates: "Sharjah", scope: "Chiller Water Line Strainer Cleaning & Actuator Replacement", priority: "High", contractType: "non_amc_with_amc_ref", amc: false, amcRefNo: "AMC-2025-9921",
+    area: "King Faisal", emirates: "Sharjah", scope: "Chiller Water Line Strainer Cleaning & Actuator Replacement", priority: "High", amc: false,
     workerIds: ["w0", "w4"], teamLeadId: "w0", vehicleId: "v1", avgOneWayKm: "24", status: "Assigned", estimatedDays: "2",
     createdAt: Date.now() - 86400000 * 1, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "12000", marginPercent: "30",
   },
   {
     id: "j2003", jobOrderNo: "2003", projectNo: "PRJ-8998", clientName: "Gulf Cold Store LLC", quotationRef: "QT-2026-088",
-    area: "Jebel Ali Industrial", emirates: "Dubai", scope: "Compressor Overhaul & Blower Motor Bearing Replacement", priority: "Medium", contractType: "amc", amc: true, amcRefNo: "",
+    area: "Jebel Ali Industrial", emirates: "Dubai", scope: "Compressor Overhaul & Blower Motor Bearing Replacement", priority: "Medium", amc: true,
     workerIds: ["w1", "w5", "w12"], teamLeadId: "w1", vehicleId: "v2", avgOneWayKm: "42", status: "Completed", estimatedDays: "3",
     createdAt: Date.now() - 86400000 * 5, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Paid", invoiceDate: todayISO(), invoiceNumber: "INV-8998", invoiceAmount: "16500", budgetAmount: "16500", marginPercent: "22",
   },
   {
     id: "j2004", jobOrderNo: "2004", projectNo: "PRJ-9045", clientName: "Last Chance Wholesale Market", quotationRef: "QT-2026-112",
-    area: "Mia Mall", emirates: "Ajman", scope: "Thermostat Wire Replacement & Airflow Testing", priority: "Low", contractType: "non_amc", amc: false, amcRefNo: "",
+    area: "Mia Mall", emirates: "Ajman", scope: "Thermostat Wire Replacement & Airflow Testing", priority: "Low", amc: true,
     workerIds: ["w2", "w6"], teamLeadId: "w2", vehicleId: "v3", avgOneWayKm: "30", status: "Assigned", estimatedDays: "1",
     createdAt: Date.now() - 86400000 * 3, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "4800", marginPercent: "20",
   },
   {
     id: "j2005", jobOrderNo: "2005", projectNo: "PRJ-9048", clientName: "Union Coop Supermarket", quotationRef: "QT-2026-115",
-    area: "Al Quoz", emirates: "Dubai", scope: "Emergency Chiller Cooling Failure Inspection", priority: "High", contractType: "non_amc_with_amc_ref", amc: false, amcRefNo: "AMC-2026-4402",
+    area: "Al Quoz", emirates: "Dubai", scope: "Emergency Chiller Cooling Failure Inspection", priority: "High", amc: false,
     workerIds: ["w15", "w7"], teamLeadId: "w15", vehicleId: "v4", avgOneWayKm: "12", status: "In Progress", estimatedDays: "1",
     createdAt: Date.now() - 86400000 * 1, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "", budgetAmount: "9200", marginPercent: "28",
@@ -532,8 +503,7 @@ function exportLaborCostReport(workers, jobOrders, entries) {
       "Time In": e.timeIn,
       "Time Out": e.timeOut,
       "Working Hours": Number((e.hours || 0).toFixed(4)),
-      "Contract Type": getJobContractTypeMeta(job).label,
-      "AMC Reference No": job?.amcRefNo || "",
+      "AMC / Non AMC": job.amc ? "Amc" : "Non Amc",
       "No of Days": Number((e.days || 0).toFixed(6)),
       "Cost": Number((e.cost || 0).toFixed(2)),
       "Invoice Status": job.invoiceStatus || "",
@@ -596,7 +566,7 @@ function exportPettyCashReport(workers, cash, filteredEntries) {
       "Type": CASH_TYPES[e.type]?.label || e.type,
       "Project No": e.projectNo || "",
       "Amount": Number(e.amount || 0),
-      "Tally Posted": e.postedToFinance ? "Yes" : "No",
+      "Posted to Finance": e.postedToFinance ? "Yes" : "No",
     };
     // A running balance only means something over the full unfiltered ledger —
     // label it clearly as a partial sum when a date range has been applied.
@@ -634,8 +604,7 @@ function exportBoardReport(jobs, workers, vehicles, cash, entries, otherExpenses
       "Status": j.status,
       "Crew": crew,
       "Vehicle": f.vehicle ? f.vehicle.name : "",
-      "Contract Type": getJobContractTypeMeta(j).label,
-      "AMC Reference No": j.amcRefNo || "",
+      "AMC / Non AMC": j.amc ? "Amc" : "Non Amc",
       "Ticket Created Date": j.createdDate || "",
       "Date Assigned": j.assignedDate || j.createdDate || "",
       "Budget": f.budget || "",
@@ -971,7 +940,6 @@ function App() {
   const [vehicles, setVehicles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [jobOrders, setJobOrders] = useState([]);
-  const [amcContracts, setAmcContracts] = useState([]);
   const [entries, setEntries] = useState([]);
   const [cash, setCash] = useState({ entries: [], nextRef: 1 });
   const [otherExpenses, setOtherExpenses] = useState({ entries: [], nextRef: 1 });
@@ -981,7 +949,7 @@ function App() {
 
   const [adminUser, setAdminUser] = useState(null);
   const [showAdminAuthModal, setShowAdminAuthModal] = useState(false);
-  const [wrapUpTarget, setWrapUpTarget] = useState(null);
+  const [holdJobTarget, setHoldJobTarget] = useState(null);
   const [showAppDemo, setShowAppDemo] = useState(false);
 
   const handleAdminLogout = () => {
@@ -1001,8 +969,6 @@ function App() {
       }
       let jobs = await storageGet("job-orders", true);
       if (!jobs || jobs.length === 0) { jobs = SEED_JOBS; await storageSet("job-orders", jobs, true); }
-      let amcs = await storageGet("amc-contracts", true);
-      if (!amcs || amcs.length === 0) { amcs = SEED_AMC_CONTRACTS; await storageSet("amc-contracts", amcs, true); }
       let ents = await storageGet("time-entries", true);
       if (!ents || ents.length === 0) { ents = SEED_ENTRIES; await storageSet("time-entries", ents, true); }
       let pc = await storageGet("petty-cash", true);
@@ -1038,7 +1004,6 @@ function App() {
       setVehicles(roster.vehicles || SEED_VEHICLES);
       setCategories(roster.categories && roster.categories.length ? roster.categories : DEFAULT_CATEGORIES);
       setJobOrders(jobs);
-      setAmcContracts(amcs);
       setEntries(ents);
       setCash(pc);
       setOtherExpenses(opx);
@@ -1060,7 +1025,6 @@ function App() {
     };
     await storageSet("roster", roster, true);
     await storageSet("job-orders", SEED_JOBS, true);
-    await storageSet("amc-contracts", SEED_AMC_CONTRACTS, true);
     await storageSet("time-entries", SEED_ENTRIES, true);
     await storageSet("petty-cash", SEED_CASH, true);
     await storageSet("other-expenses", { entries: [], nextRef: 1 }, true);
@@ -1069,7 +1033,6 @@ function App() {
     setVehicles(roster.vehicles);
     setCategories(DEFAULT_CATEGORIES);
     setJobOrders(SEED_JOBS);
-    setAmcContracts(SEED_AMC_CONTRACTS);
     setEntries(SEED_ENTRIES);
     setCash(SEED_CASH);
     setOtherExpenses({ entries: [], nextRef: 1 });
@@ -1308,16 +1271,8 @@ function App() {
       const date = excelDateToISO(dateVal);
       const timeIn = excelTimeToHHMM(rowField(row, "Time In", "Time In "));
       const timeOut = excelTimeToHHMM(rowField(row, "Time Out"));
-      const amcRaw = String(rowField(row, "Contract Type", "AMC / Non AMC")).trim();
-      const amcRefRaw = String(rowField(row, "AMC Reference No", "AMC Ref No", "AMC Ref")).trim();
-      let contractType = "non_amc";
-      if (/^amc$/i.test(amcRaw)) {
-        contractType = "amc";
-      } else if (/ref/i.test(amcRaw) || amcRefRaw) {
-        contractType = "non_amc_with_amc_ref";
-      }
-      const amc = contractType === "amc";
-      const amcRefNo = amcRefRaw;
+      const amcRaw = String(rowField(row, "AMC / Non AMC")).trim();
+      const amc = /^amc$/i.test(amcRaw);
       const categoryCode = String(rowField(row, "Column1", "LAB_CAT")).trim() || "T";
       const costRaw = Number(rowField(row, "Cost")) || 0;
       const hoursRaw = Number(rowField(row, "Working Hours"));
@@ -1336,9 +1291,7 @@ function App() {
           emirates: String(rowField(row, "Emirates")) || "Dubai",
           scope: String(rowField(row, "Scope")),
           priority: "Medium",
-          contractType,
           amc,
-          amcRefNo,
           workerIds: [],
           vehicleId: "",
           avgOneWayKm: "",
@@ -1499,17 +1452,9 @@ function App() {
           <AdminLoginScreen onLoginSuccess={(user) => { setAdminUser(user); showToast(`Welcome back, ${user.name}!`); }} />
         ) : (
           <DispatchView
-            workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts} entries={entries} cash={cash}
+            workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} entries={entries} cash={cash}
             otherExpenses={otherExpenses} attendance={attendance}
-            onAddContract={(c) => {
-              const newList = [...amcContracts, c];
-              setAmcContracts(newList); storageSet("amc-contracts", newList, true);
-            }}
-            onUpdateContract={(id, patch) => {
-              const newList = amcContracts.map((x) => x.id === id ? { ...x, ...patch } : x);
-              setAmcContracts(newList); storageSet("amc-contracts", newList, true);
-            }}
-            onAddJob={addJobOrder} onUpdateJob={updateJobOrder} onWrapUpJob={(job, action) => setWrapUpTarget({ job, action })} onOpenDemo={() => setShowAppDemo(true)}
+            onAddJob={addJobOrder} onUpdateJob={updateJobOrder} onHoldJob={(job) => setHoldJobTarget(job)} onOpenDemo={() => setShowAppDemo(true)}
             onAddWorker={addWorker} onAddVehicle={addVehicle} onUpdateWorker={updateWorker}
             onUpdateVehicle={updateVehicle} onAddCategory={addCategory}
             onAddCashEntry={addCashEntry} onAddTransfer={addTransfer}
@@ -1540,12 +1485,11 @@ function App() {
         />
       )}
 
-      {wrapUpTarget && (
-        <JobWrapUpModal action={wrapUpTarget.action} job={wrapUpTarget.job} workers={workers} vehicles={vehicles} jobOrders={jobOrders}
-          onClose={() => setWrapUpTarget(null)}
-          onSubmit={(updates) => {
-            updateJobOrder(wrapUpTarget.job.id, { ...updates, [updates.status === "On Hold" ? "onHoldAt" : "completedAt"]: todayISO() });
-            setWrapUpTarget(null);
+      {holdJobTarget && (
+        <HoldJobModal job={holdJobTarget} onClose={() => setHoldJobTarget(null)}
+          onSubmit={(reason) => {
+            updateJobOrder(holdJobTarget.id, { status: "On Hold", onHoldReason: reason, onHoldAt: todayISO() });
+            setHoldJobTarget(null);
           }} />
       )}
 
@@ -1573,7 +1517,7 @@ function App() {
 /* ---------------------------------------------------------------------
    DISPATCH VIEW
 --------------------------------------------------------------------- */
-function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract }) {
+function DispatchView({ workers, vehicles, categories, jobOrders, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onHoldJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry }) {
   const [tab, setTab] = useState("board");
   const [showNewJob, setShowNewJob] = useState(false);
   const [search, setSearch] = useState("");
@@ -1583,7 +1527,6 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
   const tabs = [
     { id: "board", label: "Board", icon: ClipboardList },
     { id: "estimations", label: "Estimations", icon: Calculator },
-    { id: "amc", label: "AMC Master", icon: Briefcase },
     { id: "fleet", label: "Fleet & Vehicles", icon: Truck },
     { id: "staff", label: "Availability", icon: User },
     { id: "shifts", label: "Attendance", icon: CalendarDays },
@@ -1721,7 +1664,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
             {sortedJobs.length === 0 && <EmptyState text={jobOrders.length === 0 ? "No job orders yet. Create one to assign workers and a vehicle." : "No job orders match these filters."} />}
             {sortedJobs.map((j) => (
-              <JobTicket key={j.id} job={j} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts} entries={entries} cash={cash} otherExpenses={otherExpenses.entries} onUpdateJob={onUpdateJob} onWrapUpJob={onWrapUpJob} />
+              <JobTicket key={j.id} job={j} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} entries={entries} cash={cash} otherExpenses={otherExpenses.entries} onUpdateJob={onUpdateJob} onHoldJob={onHoldJob} />
             ))}
           </div>
         </>
@@ -1738,9 +1681,6 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           otherExpenses={otherExpenses}
           onUpdateJob={onUpdateJob}
         />
-      )}
-      {tab === "amc" && (
-        <AmcMasterPanel amcContracts={amcContracts} jobOrders={jobOrders} onAddContract={onAddContract} onUpdateContract={onUpdateContract} />
       )}
       {tab === "fleet" && (
         <FleetPanel
@@ -1777,12 +1717,12 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
       {tab === "cash" && (
         <PettyCashPanel workers={workers} categories={categories} jobOrders={jobOrders} cash={cash}
           onAddCashEntry={onAddCashEntry} onAddTransfer={onAddTransfer}
-          onUpdateCashEntry={onUpdateCashEntry} onDeleteCashEntry={onDeleteCashEntry} />
+          onUpdateCashEntry={onUpdateCashEntry} onDeleteCashEntry={deleteCashEntry} />
       )}
       {tab === "costing" && (
         <JobCostingPanel jobOrders={jobOrders} workers={workers} vehicles={vehicles} categories={categories}
           entries={entries} cash={cash} otherExpenses={otherExpenses}
-          onUpdateJob={onUpdateJob} onAddOtherExpense={onAddOtherExpense} onDeleteOtherExpense={onDeleteOtherExpense} />
+          onUpdateJob={onUpdateJob} onAddOtherExpense={onAddOtherExpense} onDeleteOtherExpense={deleteOtherExpense} />
       )}
       {tab === "invoices" && (
         <InvoicesPanel jobOrders={jobOrders} vehicles={vehicles} entries={entries} cash={cash} otherExpenses={otherExpenses}
@@ -1798,7 +1738,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
       )}
 
       {showNewJob && (
-        <NewJobModal workers={workers} vehicles={vehicles} jobOrders={jobOrders} amcContracts={amcContracts}
+        <NewJobModal workers={workers} vehicles={vehicles} jobOrders={jobOrders}
           onClose={() => setShowNewJob(false)}
           onSubmit={(job) => { onAddJob(job); setShowNewJob(false); }} />
       )}
@@ -1815,7 +1755,7 @@ function EmptyState({ text }) {
   );
 }
 
-function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, onUpdateJob, onWrapUpJob }) {
+function JobTicket({ job, workers, vehicles, categories, jobOrders, entries, cash, otherExpenses, onUpdateJob, onHoldJob }) {
   const [showEditCrew, setShowEditCrew] = useState(false);
   const assignedWorkers = workers.filter((w) => job.workerIds.includes(w.id));
   const { totalHours, vehicle, vehicleCost, totalCost, materialCost, otherCost, actualCost, targetCost, percentOfTarget, budgetStatus } = computeJobFinancials(job, vehicles, entries, cash.entries, otherExpenses);
@@ -1879,14 +1819,9 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
             <Truck size={10} /> {vehicle.name}{job.avgOneWayKm ? ` · ${job.avgOneWayKm} km one-way (${(Number(job.avgOneWayKm) * 2).toFixed(0)} km round-trip)` : ""}{job.trips ? ` · ${job.trips} trip${Number(job.trips) === 1 ? "" : "s"}` : ""}
           </span>
         )}
-        {(() => {
-          const meta = getJobContractTypeMeta(job);
-          return (
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: meta.bg, color: meta.color }} title={meta.refNo ? `AMC Ref: ${meta.refNo}` : ""}>
-              {meta.label}
-            </span>
-          );
-        })()}
+        {job.amc && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "#E4F1E9", color: COLORS.go }}>AMC</span>
+        )}
       </div>
 
       {targetCost > 0 && (() => {
@@ -1948,42 +1883,34 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
               <PlayCircle size={13} /> Resume Work
             </button>
           ) : (
-            <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "hold") : onUpdateJob(job.id, { status: "On Hold" })}
+            <button onClick={() => onHoldJob ? onHoldJob(job) : onUpdateJob(job.id, { status: "On Hold" })}
               className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid #F59E0B" }}>
               <PauseCircle size={13} /> Hold Work
             </button>
           )}
-          <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "complete") : onUpdateJob(job.id, { status: "Completed" })}
-            className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: COLORS.steel, color: "#fff" }}>
-            <Check size={13} /> Mark Completed
+          <button onClick={() => onUpdateJob(job.id, { status: "Completed" })}
+            className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer" style={{ background: COLORS.steel, color: "#fff" }}>
+            Mark Completed
           </button>
         </div>
       )}
 
       {showEditCrew && (
-        <EditCrewModal job={job} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts}
+        <EditCrewModal job={job} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders}
           onClose={() => setShowEditCrew(false)}
-          onSave={(patch) => {
-            let finalStatus = patch.status || job.status;
-            if (patch.workerIds && patch.workerIds.length === 0) finalStatus = "Pending Allocation";
-            if (patch.workerIds && patch.workerIds.length > 0 && finalStatus === "Pending Allocation") finalStatus = "Assigned";
-            onUpdateJob(job.id, { ...patch, status: finalStatus });
-            setShowEditCrew(false);
-          }} />
+          onSave={(patch) => { onUpdateJob(job.id, patch); setShowEditCrew(false); }} />
       )}
     </div>
   );
 }
 
-function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContracts, onClose, onSave }) {
+function EditCrewModal({ job, workers, vehicles, categories, jobOrders, onClose, onSave }) {
   const [clientName, setClientName] = useState(job.clientName || "");
   const [projectNo, setProjectNo] = useState(job.projectNo || "");
   const [quotationRef, setQuotationRef] = useState(job.quotationRef || "");
   const [area, setArea] = useState(job.area || "");
   const [emirates, setEmirates] = useState(job.emirates || "Dubai");
   const [scope, setScope] = useState(job.scope || "");
-  const [contractType, setContractType] = useState(job.contractType || (job.amc ? "amc" : "non_amc"));
-  const [amcRefNo, setAmcRefNo] = useState(job.amcRefNo || "");
   const [selected, setSelected] = useState(job.workerIds);
   const [vehicleId, setVehicleId] = useState(job.vehicleId || "");
   const [avgOneWayKm, setAvgOneWayKm] = useState(job.avgOneWayKm || "");
@@ -2025,29 +1952,6 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
               {EMIRATES.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           </Field>
-          <Field label="Contract Type">
-            <div className="flex gap-1 mb-1">
-              <button type="button" onClick={() => setContractType("amc")} className="flex-1 text-[10px] font-bold py-1 rounded" style={{ border: `1.5px solid ${COLORS.go}`, background: contractType === "amc" ? COLORS.go : "transparent", color: contractType === "amc" ? "#fff" : COLORS.go }}>AMC</button>
-              <button type="button" onClick={() => setContractType("non_amc")} className="flex-1 text-[10px] font-bold py-1 rounded" style={{ border: `1.5px solid ${COLORS.steel}`, background: contractType === "non_amc" ? COLORS.steel : "transparent", color: contractType === "non_amc" ? "#fff" : COLORS.steel }}>NON-AMC</button>
-              <button type="button" onClick={() => setContractType("non_amc_with_amc_ref")} className="flex-1 text-[9.5px] font-bold py-1 rounded text-center leading-tight" style={{ border: `1.5px solid #6B46C1`, background: contractType === "non_amc_with_amc_ref" ? "#6B46C1" : "transparent", color: contractType === "non_amc_with_amc_ref" ? "#fff" : "#6B46C1" }}>NON-AMC (AMC REF)</button>
-            </div>
-          </Field>
-          {(contractType === "amc" || contractType === "non_amc_with_amc_ref") && (
-            <Field label="AMC Reference Number" hint="Select linked AMC Contract">
-              {amcContracts && amcContracts.length > 0 ? (
-                <select className={inputCls} style={inputStyle} value={amcRefNo} onChange={(e) => {
-                  const val = e.target.value;
-                  setAmcRefNo(val);
-                  const selAmc = amcContracts.find(a => a.refNo === val);
-                  if (selAmc && !clientName) setClientName(selAmc.clientName);
-                }}>
-                  <option value="">-- Type or Select --</option>
-                  {amcContracts.map(a => <option key={a.id} value={a.refNo}>{a.refNo} ({a.clientName})</option>)}
-                </select>
-              ) : null}
-              <input type="text" className={`${amcContracts && amcContracts.length > 0 ? "mt-2 " : ""}${inputCls}`} style={inputStyle} value={amcRefNo} onChange={(e) => setAmcRefNo(e.target.value)} placeholder="Or type manually e.g. AMC-2025-9921..." />
-            </Field>
-          )}
           <Field label="Scope"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 50 }} value={scope} onChange={(e) => setScope(e.target.value)} /></Field>
 
           <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 mt-1" style={{ color: COLORS.steelLight }}>Crew</div>
@@ -2137,8 +2041,6 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
             <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
             <button onClick={() => onSave({
               clientName, projectNo, quotationRef, area, emirates, scope,
-              contractType, amcRefNo: (contractType === "amc" || contractType === "non_amc_with_amc_ref") ? amcRefNo.trim() : "",
-              amc: contractType === "amc",
               workerIds: selected, vehicleId, avgOneWayKm, trips, budgetAmount, marginPercent, teamLeadId, estimatedDays, assignedDate: todayISO(),
             })}
               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide cursor-pointer" style={{ background: COLORS.safety, color: COLORS.steelDark }}>
@@ -2151,82 +2053,36 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
   );
 }
 
-function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, onSubmit }) {
+function HoldJobModal({ job, onClose, onSubmit }) {
   const [reason, setReason] = useState("");
-  const [vehicleId, setVehicleId] = useState(job.vehicleId || "");
-  const [selectedWorkers, setSelectedWorkers] = useState(job.workerIds || []);
-
-  const activeWorkers = workers.filter((w) => w.active !== false || selectedWorkers.includes(w.id));
-  const activeVehicles = vehicles.filter((v) => v.active !== false || vehicleId === v.id);
-
-  const toggleWorker = (id) => {
-    setSelectedWorkers((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const isHold = action === "hold";
-  const Icon = isHold ? PauseCircle : Check;
-  const title = isHold ? `HOLD WORK — #${job.jobOrderNo}` : `COMPLETE WORK — #${job.jobOrderNo}`;
-  const btnColor = isHold ? "#D97706" : COLORS.go;
-  const btnText = isHold ? "HOLD WORK" : "MARK COMPLETED";
-  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,25,20,0.5)" }} onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ background: COLORS.steelDark }}>
+      <div className="w-full max-w-md rounded-xl overflow-hidden shadow-2xl" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
           <div className="disp text-white font-bold text-base tracking-wide flex items-center gap-2">
-            <Icon size={18} color={isHold ? "#F59E0B" : COLORS.go} /> {title}
+            <PauseCircle size={18} color="#F59E0B" /> HOLD WORK — #{job.jobOrderNo}
           </div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
-        <div className="p-5 overflow-y-auto">
+        <div className="p-5">
           <div className="text-[11px] mb-3" style={{ color: "#8A8F84" }}>
-            {isHold ? `Specify the reason for putting job #${job.jobOrderNo} (${job.clientName}) on hold. Also confirm the vehicle and crew members who worked today.` 
-                    : `Marking job #${job.jobOrderNo} (${job.clientName}) as completed. Confirm the final vehicle and crew members who performed the work.`}
+            Specify the reason for putting job #{job.jobOrderNo} ({job.clientName}) on hold. This will update the status and log the hold cause for dispatch.
           </div>
-          
-          {isHold && (
-            <Field label="Reason for Holding Work">
-              <input className={inputCls} style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Waiting for spare parts, Client site closed, Safety hold..." autoFocus />
-            </Field>
-          )}
-
-          <div className="grid grid-cols-1 gap-x-4 mb-2">
-            <Field label="Vehicle Used Today">
-              <select className={inputCls} style={inputStyle} value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
-                <option value="">No Vehicle</option>
-                {activeVehicles.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.ratePerKm} AED/km)</option>)}
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Crew Members Present Today">
-            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.line}` }}>
-              {activeWorkers.map((w) => (
-                <button key={w.id} type="button" onClick={() => toggleWorker(w.id)}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] font-medium"
-                  style={{ background: selectedWorkers.includes(w.id) ? "#E7ECEF" : "transparent", color: COLORS.ink }}>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: availabilityMeta(computeWorkerStatus(w, jobOrders)).color }} />
-                    <span className="truncate max-w-[100px]" style={{ textAlign: 'left' }}>{w.name}</span>
-                  </span>
-                  {selectedWorkers.includes(w.id) && <Check size={12} color={COLORS.steel} />}
-                </button>
-              ))}
-            </div>
+          <Field label="Reason for Holding Work">
+            <input className={inputCls} style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Waiting for spare parts, Client site closed, Safety hold..." autoFocus />
           </Field>
-
-          <div className="flex gap-2 pt-2 mt-4 border-t" style={{ borderColor: COLORS.line }}>
+          <div className="flex gap-2 pt-2">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-xs font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
             <button
               onClick={() => {
-                if (isHold && !reason.trim()) { alert("Please enter a reason for putting work on hold."); return; }
-                onSubmit({ onHoldReason: isHold ? reason.trim() : "", vehicleId, workerIds: selectedWorkers, status: isHold ? "On Hold" : "Completed" });
+                if (!reason.trim()) { alert("Please enter a reason for putting work on hold."); return; }
+                onSubmit(reason.trim());
               }}
               className="flex-1 disp py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-              style={{ background: btnColor, color: "#fff" }}
+              style={{ background: "#D97706", color: "#fff" }}
             >
-              <Icon size={16} /> {btnText}
+              <PauseCircle size={16} /> HOLD WORK
             </button>
           </div>
         </div>
@@ -2235,11 +2091,11 @@ function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, on
   );
 }
 
-function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSubmit }) {
+function NewJobModal({ workers, vehicles, jobOrders, onClose, onSubmit }) {
   const nextNo = 2001 + jobOrders.length;
   const [form, setForm] = useState({
     jobOrderNo: String(nextNo), projectNo: "", clientName: "", quotationRef: "",
-    area: "", emirates: "Dubai", scope: "", priority: "Medium", contractType: "non_amc", amcRefNo: "", amc: false,
+    area: "", emirates: "Dubai", scope: "", priority: "Medium", amc: false,
     workerIds: [], vehicleId: "", avgOneWayKm: "", trips: "1", estimatedDays: "1", budgetAmount: "", marginPercent: "", teamLeadId: "",
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -2250,7 +2106,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
   const activeWorkers = workers.filter((w) => w.active !== false);
   const activeVehicles = vehicles.filter((v) => v.active !== false);
 
-  const canSubmit = form.clientName && form.scope;
+  const canSubmit = form.clientName && form.scope && form.workerIds.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,25,20,0.45)" }}>
@@ -2274,7 +2130,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
           </div>
           <Field label="Scope of Work"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 70 }} value={form.scope} onChange={(e) => set("scope", e.target.value)} placeholder="Describe the job…" /></Field>
 
-          <div className="grid grid-cols-2 gap-x-4 mb-1">
+          <div className="grid grid-cols-2 gap-x-4">
             <Field label="Priority">
               <div className="flex gap-1.5">
                 {PRIORITIES.map((p) => (
@@ -2287,30 +2143,12 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
               </div>
             </Field>
             <Field label="Contract Type">
-              <div className="flex gap-1">
-                <button type="button" onClick={() => set("contractType", "amc")} className="flex-1 text-[10px] font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.go}`, background: form.contractType === "amc" ? COLORS.go : "transparent", color: form.contractType === "amc" ? "#fff" : COLORS.go }}>AMC</button>
-                <button type="button" onClick={() => set("contractType", "non_amc")} className="flex-1 text-[10px] font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.steel}`, background: form.contractType === "non_amc" ? COLORS.steel : "transparent", color: form.contractType === "non_amc" ? "#fff" : COLORS.steel }}>NON-AMC</button>
-                <button type="button" onClick={() => set("contractType", "non_amc_with_amc_ref")} className="flex-1 text-[9px] font-bold py-1 rounded-md text-center leading-tight" style={{ border: `1.5px solid #6B46C1`, background: form.contractType === "non_amc_with_amc_ref" ? "#6B46C1" : "transparent", color: form.contractType === "non_amc_with_amc_ref" ? "#fff" : "#6B46C1" }}>NON-AMC (AMC REF)</button>
+              <div className="flex gap-1.5">
+                <button type="button" onClick={() => set("amc", true)} className="flex-1 text-xs font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.go}`, background: form.amc ? COLORS.go : "transparent", color: form.amc ? "#fff" : COLORS.go }}>AMC</button>
+                <button type="button" onClick={() => set("amc", false)} className="flex-1 text-xs font-bold py-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.steel}`, background: !form.amc ? COLORS.steel : "transparent", color: !form.amc ? "#fff" : COLORS.steel }}>NON-AMC</button>
               </div>
             </Field>
           </div>
-
-          {(form.contractType === "amc" || form.contractType === "non_amc_with_amc_ref") && (
-            <Field label="AMC Reference Number" hint="Select linked AMC Contract">
-              {amcContracts && amcContracts.length > 0 ? (
-                <select className={inputCls} style={inputStyle} value={form.amcRefNo} onChange={(e) => {
-                  const val = e.target.value;
-                  set("amcRefNo", val);
-                  const selAmc = amcContracts.find(a => a.refNo === val);
-                  if (selAmc && !form.clientName) set("clientName", selAmc.clientName);
-                }}>
-                  <option value="">-- Type or Select --</option>
-                  {amcContracts.map(a => <option key={a.id} value={a.refNo}>{a.refNo} ({a.clientName})</option>)}
-                </select>
-              ) : null}
-              <input type="text" className={`${amcContracts && amcContracts.length > 0 ? "mt-2 " : ""}${inputCls}`} style={inputStyle} value={form.amcRefNo} onChange={(e) => set("amcRefNo", e.target.value)} placeholder="Or type manually e.g. AMC-2025-9921..." />
-            </Field>
-          )}
 
           <div className="grid grid-cols-2 gap-x-4">
             <Field label="Quoted Budget (AED)" hint="What was quoted to the client for this job.">
@@ -2323,12 +2161,12 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
             </Field>
           </div>
 
-          <Field label="Assign Crew (click to select)">
-            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1.5 rounded-md" style={{ border: `1.5px solid ${COLORS.line}` }}>
+          <Field label={`Assign Workers (${form.workerIds.length} selected)`}>
+            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-1 rounded-md" style={{ border: `1.5px solid ${COLORS.line}` }}>
               {activeWorkers.length === 0 && <div className="col-span-2 text-[11px] p-2" style={{ color: "#8A8F84" }}>No active workers. Reactivate someone in Roster first.</div>}
               {activeWorkers.map((w) => (
                 <button key={w.id} type="button" onClick={() => toggleWorker(w.id)}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium"
+                  className="flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium"
                   style={{ background: form.workerIds.includes(w.id) ? "#E7ECEF" : "transparent", color: COLORS.ink }}>
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: availabilityMeta(computeWorkerStatus(w, jobOrders)).color }} />
@@ -2403,13 +2241,10 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
           })()}
 
           <div className="flex gap-2 mt-4">
-            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
-            <button type="button" disabled={!canSubmit}
+            <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
+            <button disabled={!canSubmit}
               onClick={() => onSubmit({
-                id: genId("j"), ...form,
-                amc: form.contractType === "amc",
-                amcRefNo: (form.contractType === "amc" || form.contractType === "non_amc_with_amc_ref") ? form.amcRefNo.trim() : "",
-                status: form.workerIds.length > 0 ? "Assigned" : "Pending Allocation", createdAt: Date.now(), createdDate: todayISO(), assignedDate: todayISO(),
+                id: genId("j"), ...form, status: "Assigned", createdAt: Date.now(), createdDate: todayISO(), assignedDate: todayISO(),
                 invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "",
               })}
               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide"
@@ -4696,146 +4531,6 @@ function StaffPanel({ workers, categories, vehicles, jobOrders, onUpdateWorker, 
 }
 
 /* ---------------------------------------------------------------------
-   AMC MASTER PANEL
---------------------------------------------------------------------- */
-function AmcMasterPanel({ amcContracts, jobOrders, onAddContract, onUpdateContract }) {
-  const [modal, setModal] = useState(null); // "new" or amc object
-  const [search, setSearch] = useState("");
-
-  const filtered = amcContracts.filter((a) =>
-    a.refNo.toLowerCase().includes(search.toLowerCase()) ||
-    a.clientName.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="relative max-w-xs w-full flex-1">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50"><Search size={14} /></div>
-          <input type="text" placeholder="Search AMC contracts..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg text-sm bg-white shadow-sm" style={{ border: `1.5px solid ${COLORS.line}` }} />
-        </div>
-        <button onClick={() => setModal("new")} className="disp flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold tracking-wide shadow-sm text-white" style={{ background: COLORS.go }}>
-          <Plus size={16} /> ADD AMC
-        </button>
-      </div>
-
-      <div className="grid gap-3">
-        {filtered.length === 0 && <EmptyState text="No AMC contracts found." />}
-        {filtered.map((amc) => {
-          // Count SRs
-          const srs = jobOrders.filter((j) => j.amcRefNo === amc.refNo || (j.amc && j.projectNo === amc.refNo));
-          const completed = srs.filter((j) => j.status === "Completed").length;
-          const pendingAlloc = srs.filter((j) => j.status === "Pending Allocation" || (j.workerIds.length === 0 && j.status !== "Completed")).length;
-          const assigned = srs.length - completed - pendingAlloc;
-
-          return (
-            <div key={amc.id} className="p-4 rounded-xl shadow-sm bg-white relative group" style={{ border: `1.5px solid ${COLORS.line}` }}>
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <div className="text-[11px] font-bold tracking-wider" style={{ color: COLORS.steel }}>{amc.refNo}</div>
-                  <div className="text-lg font-bold disp leading-tight">{amc.clientName}</div>
-                </div>
-                <button onClick={() => setModal(amc)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                  <Settings2 size={14} />
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-4 text-sm mt-3 pb-3 border-b" style={{ borderColor: COLORS.line }}>
-                <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Period</span>
-                  {amc.startDate} to {amc.endDate}
-                </div>
-                <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Inv Freq</span>
-                  {amc.invoiceFrequency}
-                </div>
-                <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Services/Yr</span>
-                  {amc.servicesPerYear}
-                </div>
-                <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Per Indoor/Outdoor</span>
-                  {amc.servicesPerIndoorUnit} / {amc.servicesPerOutdoorUnit}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-3 text-[11px] font-semibold text-gray-600">
-                <div className="flex items-center gap-1"><Ticket size={13} color={COLORS.steel} /> {srs.length} Total SRs</div>
-                <div className="flex items-center gap-1"><Check size={13} color={COLORS.go} /> {completed} Completed</div>
-                <div className="flex items-center gap-1"><User size={13} color={COLORS.safety} /> {assigned} Assigned</div>
-                <div className="flex items-center gap-1"><AlertCircle size={13} color={pendingAlloc > 0 ? COLORS.urgent : COLORS.steelLight} /> {pendingAlloc} Pending Allocation</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {modal && (
-        <AmcModal
-          amc={modal === "new" ? null : modal}
-          onClose={() => setModal(null)}
-          onSave={(data) => {
-            if (modal === "new") onAddContract({ id: genId("amc"), ...data });
-            else onUpdateContract(modal.id, data);
-            setModal(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function AmcModal({ amc, onClose, onSave }) {
-  const [form, setForm] = useState(amc || {
-    refNo: "", clientName: "", startDate: todayISO(), endDate: "",
-    servicesPerYear: "4", servicesPerIndoorUnit: "4", servicesPerOutdoorUnit: "2",
-    invoiceFrequency: "Quarterly"
-  });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const inputCls = "w-full rounded px-2.5 py-1.5 text-sm";
-  const inputStyle = { border: `1.5px solid ${COLORS.line}`, background: "#fff", color: COLORS.steelDark };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,25,20,0.5)" }}>
-      <div className="w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" style={{ background: COLORS.paper }}>
-        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ background: COLORS.steelDark }}>
-          <div className="disp text-white font-bold text-base tracking-wide flex items-center gap-2">
-            <Briefcase size={18} color={COLORS.safety} /> {amc ? "EDIT AMC" : "NEW AMC CONTRACT"}
-          </div>
-          <button onClick={onClose}><X size={18} color="#fff" /></button>
-        </div>
-        <div className="p-5 overflow-y-auto">
-          <Field label="AMC Ref No"><input type="text" className={inputCls} style={inputStyle} value={form.refNo} onChange={(e) => set("refNo", e.target.value)} placeholder="AMC-2026-001" /></Field>
-          <Field label="Client Name"><input type="text" className={inputCls} style={inputStyle} value={form.clientName} onChange={(e) => set("clientName", e.target.value)} /></Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Start Date"><input type="date" className={inputCls} style={inputStyle} value={form.startDate} onChange={(e) => set("startDate", e.target.value)} /></Field>
-            <Field label="End Date"><input type="date" className={inputCls} style={inputStyle} value={form.endDate} onChange={(e) => set("endDate", e.target.value)} /></Field>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Services Per Year"><input type="number" min="1" className={inputCls} style={inputStyle} value={form.servicesPerYear} onChange={(e) => set("servicesPerYear", e.target.value)} /></Field>
-            <Field label="Invoice Freq">
-              <select className={inputCls} style={inputStyle} value={form.invoiceFrequency} onChange={(e) => set("invoiceFrequency", e.target.value)}>
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Semi-Annually">Semi-Annually</option>
-                <option value="Annually">Annually</option>
-              </select>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Serv. / Indoor Unit"><input type="number" min="1" className={inputCls} style={inputStyle} value={form.servicesPerIndoorUnit} onChange={(e) => set("servicesPerIndoorUnit", e.target.value)} /></Field>
-            <Field label="Serv. / Outdoor Unit"><input type="number" min="1" className={inputCls} style={inputStyle} value={form.servicesPerOutdoorUnit} onChange={(e) => set("servicesPerOutdoorUnit", e.target.value)} /></Field>
-          </div>
-          
-          <div className="flex gap-2 pt-3 mt-2 border-t" style={{ borderColor: COLORS.line }}>
-            <button onClick={onClose} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
-            <button onClick={() => form.refNo && onSave(form)} className="flex-1 py-2 rounded-lg text-sm font-bold disp tracking-wide shadow-sm" style={{ background: COLORS.safety, color: COLORS.steelDark, opacity: form.refNo ? 1 : 0.5 }}>SAVE</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------
    PETTY CASH
 --------------------------------------------------------------------- */
 function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry }) {
@@ -4844,7 +4539,7 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
   const [editEntry, setEditEntry] = useState(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [postedFilter, setPostedFilter] = useState("all"); // all | tally posted | not posted
+  const [postedFilter, setPostedFilter] = useState("all"); // all | posted | unposted
   const dateFilterActive = !!dateFrom || !!dateTo || postedFilter !== "all";
 
   const totalBalance = workers.reduce((s, w) => s + workerCashBalance(w.id, cash.entries), 0);
@@ -4856,8 +4551,8 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
   const passesFilter = (e) => {
     if (dateFrom && (e.date || "") < dateFrom) return false;
     if (dateTo && (e.date || "") > dateTo) return false;
-    if (postedFilter === "tally posted" && !e.postedToFinance) return false;
-    if (postedFilter === "not posted" && e.postedToFinance) return false;
+    if (postedFilter === "posted" && !e.postedToFinance) return false;
+    if (postedFilter === "unposted" && e.postedToFinance) return false;
     return true;
   };
   const filteredEntries = cash.entries.filter(passesFilter);
@@ -4872,7 +4567,7 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
         <span className="text-[11px]" style={{ color: "#8A8F84" }}>to</span>
         <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
           className="text-[11px] rounded px-2 py-1" style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.steel, background: "#fff" }} />
-        {["all", "tally posted", "not posted"].map((f) => (
+        {["all", "posted", "unposted"].map((f) => (
           <button key={f} onClick={() => setPostedFilter(f)}
             className="text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize"
             style={{ background: postedFilter === f ? COLORS.steel : "#fff", color: postedFilter === f ? "#fff" : COLORS.steel, border: `1.5px solid ${COLORS.steel}` }}>
@@ -4950,7 +4645,7 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
                             </div>
                             <div className="text-[10px]" style={{ color: "#8A8F84" }}>{e.date}</div>
                           </div>
-                          <Switch checked={!!e.postedToFinance} onChange={(v) => onUpdateCashEntry(e.id, { postedToFinance: v })} label={e.postedToFinance ? "Tally Posted" : "Not Posted"} />
+                          <Switch checked={!!e.postedToFinance} onChange={(v) => onUpdateCashEntry(e.id, { postedToFinance: v })} label={e.postedToFinance ? "Posted" : "Not posted"} />
                           <span className="mono font-semibold" style={{ color: meta.sign > 0 ? COLORS.go : COLORS.urgent }}>
                             {meta.sign > 0 ? "+" : "−"}{fmtMoney(e.amount)}
                           </span>
@@ -5003,22 +4698,8 @@ function EditCashEntryModal({ entry, jobOrders, onClose, onSave }) {
   const [date, setDate] = useState(entry.date || todayISO());
   const [projectNo, setProjectNo] = useState(entry.projectNo || "");
   const [postedToFinance, setPostedToFinance] = useState(!!entry.postedToFinance);
-  const [receipt, setReceipt] = useState(entry.receipt || null);
-  const [receiptName, setReceiptName] = useState(entry.receiptName || "");
-  const [uploading, setUploading] = useState(false);
   const showProject = entry.type === "expense" || entry.type === "income";
   const isTransfer = entry.type === "transfer_out" || entry.type === "transfer_in";
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 3 * 1024 * 1024) { alert("Please choose a file under 3MB."); return; }
-    setUploading(true);
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      setReceipt(dataUrl); setReceiptName(file.name);
-    } finally { setUploading(false); }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(20,25,20,0.5)" }}>
@@ -5042,26 +4723,14 @@ function EditCashEntryModal({ entry, jobOrders, onClose, onSave }) {
           )}
           <Field label="Date"><input type="date" className={inputCls} style={inputStyle} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label="Note"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 50 }} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-          {entry.type === "expense" && (
-            <Field label="Receipt / Invoice (optional)">
-              <input type="file" accept="image/*,.pdf" onChange={handleFile} className="text-xs" />
-              {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading file…</div>}
-              {receipt && receipt.startsWith("data:image") && (
-                <img src={receipt} alt="receipt" className="mt-2 rounded-md max-h-32 border" style={{ borderColor: COLORS.line }} />
-              )}
-              {receipt && !receipt.startsWith("data:image") && (
-                <div className="text-[11px] mt-1 flex items-center gap-1" style={{ color: COLORS.steel }}><Paperclip size={11} /> {receiptName}</div>
-              )}
-            </Field>
-          )}
           <div className="flex items-center justify-between mb-3 mt-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: COLORS.steelLight }}>Tally Posted</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: COLORS.steelLight }}>Posted to Finance</span>
             <Switch checked={postedToFinance} onChange={setPostedToFinance} />
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
             <button
-              onClick={() => onSave({ amount: Number(amount), description, date, projectNo: showProject ? (projectNo || null) : entry.projectNo, postedToFinance, receipt: receipt || null, receiptName: receiptName || null })}
+              onClick={() => onSave({ amount: Number(amount), description, date, projectNo: showProject ? (projectNo || null) : entry.projectNo, postedToFinance })}
               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide" style={{ background: COLORS.safety, color: COLORS.steelDark }}>
               SAVE
             </button>
@@ -5776,7 +5445,7 @@ function SupervisorJobModal({ job, vehicles, onSave, onClose }) {
 }
 
 function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, entries, cash, attendance, onUpdateJob, onAddEntry, onAddEntries, onUpdateWorker, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onClockIn, onClockOut }) {
-  const [wrapUpTarget, setWrapUpTarget] = useState(null);
+  const [holdJobModalTarget, setHoldJobModalTarget] = useState(null);
   const [workerId, setWorkerId] = useState(initialWorkerId || null); // authenticated worker id, session-only
 
   useEffect(() => {
@@ -5923,18 +5592,11 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
                         <PlayCircle size={13} /> RESUME WORK
                       </button>
                     ) : j.status !== "Completed" && (
-                      <>
-                        <button onClick={() => setWrapUpTarget({ job: j, action: "hold" })}
-                          className="disp flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer"
-                          style={{ background: "#FEF3C7", color: "#D97706", border: "1.5px solid #F59E0B" }}>
-                          <PauseCircle size={13} /> HOLD WORK
-                        </button>
-                        <button onClick={() => setWrapUpTarget({ job: j, action: "complete" })}
-                          className="disp flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer"
-                          style={{ background: COLORS.go, color: "#fff" }}>
-                          <Check size={13} /> COMPLETE
-                        </button>
-                      </>
+                      <button onClick={() => setHoldJobModalTarget(j)}
+                        className="disp flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer"
+                        style={{ background: "#FEF3C7", color: "#D97706", border: "1.5px solid #F59E0B" }}>
+                        <PauseCircle size={13} /> HOLD WORK
+                      </button>
                     )}
                     {isInCharge && (
                       <button onClick={() => setSupervisorEditJob(j)}
@@ -6003,12 +5665,12 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
           onClose={() => setSupervisorEditJob(null)}
           onSave={(patch) => { onUpdateJob(supervisorEditJob.id, patch); setSupervisorEditJob(null); }} />
       )}
-      {wrapUpTarget && (
-        <JobWrapUpModal action={wrapUpTarget.action} job={wrapUpTarget.job} workers={workers} vehicles={vehicles} jobOrders={jobOrders}
-          onClose={() => setWrapUpTarget(null)}
-          onSubmit={(updates) => {
-            onUpdateJob(wrapUpTarget.job.id, { ...updates, [updates.status === "On Hold" ? "onHoldAt" : "completedAt"]: todayISO() });
-            setWrapUpTarget(null);
+      {holdJobModalTarget && (
+        <HoldJobModal job={holdJobModalTarget}
+          onClose={() => setHoldJobModalTarget(null)}
+          onSubmit={(reason) => {
+            onUpdateJob(holdJobModalTarget.id, { status: "On Hold", onHoldReason: reason, onHoldAt: todayISO() });
+            setHoldJobModalTarget(null);
           }} />
       )}
     </div>

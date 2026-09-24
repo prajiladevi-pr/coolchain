@@ -1,21 +1,21 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CoolChain FM — Service, Workforce & Dispatch Management</title>
+<title>CoolChain FM â€” Service, Workforce & Dispatch Management</title>
 
-<!-- Tailwind (Play CDN — compiles utility classes in the browser, no build step) -->
+<!-- Tailwind (Play CDN â€” compiles utility classes in the browser, no build step) -->
 <script src="https://cdn.tailwindcss.com"></script>
 
 <!-- React 18 -->
 <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
 
-<!-- Babel standalone — compiles the JSX below directly in the browser -->
+<!-- Babel standalone â€” compiles the JSX below directly in the browser -->
 <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
 
-<!-- SheetJS — used for the Import Attendance / Download Report features -->
+<!-- SheetJS â€” used for the Import Attendance / Download Report features -->
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" crossorigin></script>
 
 <style>
@@ -30,10 +30,10 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ---------------------------------------------------------------------
-// STORAGE — this app was built to run inside Claude's artifact preview,
+// STORAGE â€” this app was built to run inside Claude's artifact preview,
 // which provides a `window.storage` API. Outside that preview there's no
 // such thing, so this file backs it with the browser's localStorage
-// instead. That means: works immediately, no setup — but data stays on
+// instead. That means: works immediately, no setup â€” but data stays on
 // THIS browser/device only. Two people opening this same file on two
 // different computers will NOT see each other's data. For a real
 // multi-device rollout (dispatcher + every worker's phone sharing live
@@ -72,7 +72,7 @@ const storage = {
 };
 
 // ---------------------------------------------------------------------
-// ICONS — hand-drawn stand-ins for the lucide-react icons the app was
+// ICONS â€” hand-drawn stand-ins for the lucide-react icons the app was
 // originally built with. lucide-react is a React-component package that
 // needs a bundler; rather than pull in an unverified CDN build for a
 // single-file app, this is a small self-contained icon set in the same
@@ -190,7 +190,7 @@ function vehicleStatusMeta(id) {
   return VEHICLE_STATUS.find((v) => v.id === id) || VEHICLE_STATUS[0];
 }
 
-// Statuses a dispatcher/worker sets by hand — these always win over job assignments
+// Statuses a dispatcher/worker sets by hand â€” these always win over job assignments
 // (someone on leave or a vehicle in the shop shouldn't silently show as free).
 // Everything else ("Available" / "On Job" / "Scheduled" / "In Use") is derived
 // automatically from whether they're on an active (non-Completed) job order.
@@ -249,7 +249,6 @@ const toLocalDateStr = (d) => {
 };
 const todayISO = () => toLocalDateStr(new Date());
 const nowHHMM = () => new Date().toTimeString().slice(0, 5);
-const genId = (prefix) => prefix + Math.random().toString(36).substr(2, 6);
 const fmtMoney = (n) => "AED " + (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -384,14 +383,14 @@ function computeJobFinancials(job, vehicles, entries, cashEntries, otherExpenses
   const roundTripKm = (Number(job.avgOneWayKm) || 0) * 2;
   const trips = Number(job.trips) > 0 ? Number(job.trips) : (travelDays > 0 ? travelDays : 1);
   const vehicleCost = vehicle ? (Number(vehicle.ratePerKm) || 0) * roundTripKm * trips : 0;
-  const totalCost = laborCost + vehicleCost; // labor + vehicle only — used for invoicing display
+  const totalCost = laborCost + vehicleCost; // labor + vehicle only â€” used for invoicing display
 
   const jobKey = job.projectNo || job.jobOrderNo;
   const materialEntries = (cashEntries || []).filter((e) => e.type === "expense" && e.projectNo === jobKey);
   const materialCost = materialEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
   const otherExpenseEntries = (otherExpenses || []).filter((e) => e.jobId === job.id);
   const otherCost = otherExpenseEntries.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const actualCost = totalCost + materialCost + otherCost; // labor + vehicle + material + other — used for budget tracking
+  const actualCost = totalCost + materialCost + otherCost; // labor + vehicle + material + other â€” used for budget tracking
 
   const budget = Number(job.budgetAmount) || 0;
   const marginPercent = Number(job.marginPercent) || 0;
@@ -417,11 +416,11 @@ const BUDGET_STATUS_META = {
 };
 
 // Detailed budget build-up: hours/category + materials + consumables + vehicle
-// trips×distance + margin% (margin-on-price, matching the Tracking sheet's
+// tripsÃ—distance + margin% (margin-on-price, matching the Tracking sheet's
 // convention) + a free +/- adjustment for negotiated extras or discounts.
 //   baseCost      = labor(from hours) + materials + consumables + vehicle
-//   adjustedCost  = baseCost + otherAdjustment   → this becomes the target cost ceiling
-//   budgetAmount  = adjustedCost / (1 - margin/100)   → the quote handed to the client
+//   adjustedCost  = baseCost + otherAdjustment   â†’ this becomes the target cost ceiling
+//   budgetAmount  = adjustedCost / (1 - margin/100)   â†’ the quote handed to the client
 //   marginAmount  = budgetAmount - adjustedCost
 function computeBudgetBuildUp(input, categories) {
   const hours = input.budgetHours || {};
@@ -442,14 +441,14 @@ function computeBudgetBuildUp(input, categories) {
 }
 
 // ---------------------------------------------------------------------
-// EXCEL IMPORT / EXPORT — matches the client's "labor cost datasheet" and
+// EXCEL IMPORT / EXPORT â€” matches the client's "labor cost datasheet" and
 // "Tracking" sheet layouts so round-tripping through their existing
 // workbook works without reshaping anything by hand.
 // ---------------------------------------------------------------------
 function excelDateToISO(raw) {
   if (raw == null || raw === "") return "";
   if (raw instanceof Date) {
-    // SheetJS builds this Date from the serial number as UTC — read it back
+    // SheetJS builds this Date from the serial number as UTC â€” read it back
     // as UTC too, or a UAE-timezone browser would shift the calendar day.
     const y = raw.getUTCFullYear();
     const m = String(raw.getUTCMonth() + 1).padStart(2, "0");
@@ -474,7 +473,7 @@ function excelDateToISO(raw) {
 function excelTimeToHHMM(raw) {
   if (raw == null || raw === "") return "";
   if (raw instanceof Date) {
-    // same UTC-vs-local reasoning as excelDateToISO — read UTC hours/minutes.
+    // same UTC-vs-local reasoning as excelDateToISO â€” read UTC hours/minutes.
     const hh = raw.getUTCHours();
     const mm = raw.getUTCMinutes();
     return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
@@ -512,7 +511,7 @@ function downloadWorkbook(wb, filename) {
   URL.revokeObjectURL(url);
 }
 
-// Time Log tab — mirrors "labor cost datasheet": one row per worker per entry,
+// Time Log tab â€” mirrors "labor cost datasheet": one row per worker per entry,
 // plus the rate lookup table in the trailing columns, same layout as the source file.
 function exportLaborCostReport(workers, jobOrders, entries) {
   const wb = XLSX.utils.book_new();
@@ -553,7 +552,7 @@ function exportLaborCostReport(workers, jobOrders, entries) {
   downloadWorkbook(wb, `labor-cost-report-${todayISO()}.xlsx`);
 }
 
-// Budget & Invoices tab — mirrors "Tracking": budget vs actual per job/quotation.
+// Budget & Invoices tab â€” mirrors "Tracking": budget vs actual per job/quotation.
 function exportBudgetTrackingReport(jobOrders, vehicles, entries, cash, otherExpenses) {
   const wb = XLSX.utils.book_new();
   const trackRows = jobOrders.map((j) => {
@@ -581,7 +580,7 @@ function exportBudgetTrackingReport(jobOrders, vehicles, entries, cash, otherExp
   downloadWorkbook(wb, `budget-tracking-report-${todayISO()}.xlsx`);
 }
 
-// Petty Cash tab — full ledger with running balance per worker.
+// Petty Cash tab â€” full ledger with running balance per worker.
 function exportPettyCashReport(workers, cash, filteredEntries) {
   const wb = XLSX.utils.book_new();
   const isFiltered = Array.isArray(filteredEntries);
@@ -599,7 +598,7 @@ function exportPettyCashReport(workers, cash, filteredEntries) {
       "Amount": Number(e.amount || 0),
       "Tally Posted": e.postedToFinance ? "Yes" : "No",
     };
-    // A running balance only means something over the full unfiltered ledger —
+    // A running balance only means something over the full unfiltered ledger â€”
     // label it clearly as a partial sum when a date range has been applied.
     row[isFiltered ? "Cumulative (in this export)" : "Running Balance"] = Number(running[e.workerId].toFixed(2));
     row["Note"] = e.description || "";
@@ -618,7 +617,7 @@ function exportPettyCashReport(workers, cash, filteredEntries) {
   downloadWorkbook(wb, `petty-cash-report-${todayISO()}.xlsx`);
 }
 
-// Board tab — exports whatever is currently filtered/sorted on screen.
+// Board tab â€” exports whatever is currently filtered/sorted on screen.
 function exportBoardReport(jobs, workers, vehicles, cash, entries, otherExpenses) {
   const wb = XLSX.utils.book_new();
   const rows = jobs.map((j) => {
@@ -651,7 +650,7 @@ function exportBoardReport(jobs, workers, vehicles, cash, entries, otherExpenses
   downloadWorkbook(wb, `job-board-${todayISO()}.xlsx`);
 }
 
-// Estimations tab — exports detailed labor hours, vehicle trips, kms & margins datasheet.
+// Estimations tab â€” exports detailed labor hours, vehicle trips, kms & margins datasheet.
 function exportEstimationsReport(jobOrders, categories, vehicles, entries, cash, otherExpenses) {
   const wb = XLSX.utils.book_new();
   const rows = jobOrders.map((j) => {
@@ -706,7 +705,7 @@ function exportEstimationsReport(jobOrders, categories, vehicles, entries, cash,
   downloadWorkbook(wb, `job-estimations-${todayISO()}.xlsx`);
 }
 
-// Fleet Management tab — exports vehicle master details, operational status, trip stats & distance logs.
+// Fleet Management tab â€” exports vehicle master details, operational status, trip stats & distance logs.
 function exportFleetManagementReport(vehicles, jobOrders, workers) {
   const wb = XLSX.utils.book_new();
   const rows = vehicles.map((v) => {
@@ -752,7 +751,7 @@ function exportFleetManagementReport(vehicles, jobOrders, workers) {
   downloadWorkbook(wb, `fleet-management-${todayISO()}.xlsx`);
 }
 
-// Availability tab — Staff + Fleet on separate sheets.
+// Availability tab â€” Staff + Fleet on separate sheets.
 function exportAvailabilityReport(workers, vehicles, categories, jobOrders) {
   const wb = XLSX.utils.book_new();
   const staffRows = workers.map((w) => ({
@@ -779,7 +778,7 @@ function exportAvailabilityReport(workers, vehicles, categories, jobOrders) {
   downloadWorkbook(wb, `availability-${todayISO()}.xlsx`);
 }
 
-// Roster tab — Workers + Vehicles master data on separate sheets.
+// Roster tab â€” Workers + Vehicles master data on separate sheets.
 function exportRosterReport(workers, vehicles, categories) {
   const wb = XLSX.utils.book_new();
   const workerRows = workers.map((w) => ({
@@ -1103,7 +1102,7 @@ function App() {
     const next = [entry, ...entries];
     setEntries(next);
     await persistEntries(next);
-    showToast(`Entry logged — ${fmtMoney(entry.cost)}`);
+    showToast(`Entry logged â€” ${fmtMoney(entry.cost)}`);
   };
   const addEntries = async (newEntries) => {
     const keysToReplace = new Set(newEntries.map((e) => `${e.jobId}:${e.workerId}:${e.date}`));
@@ -1112,7 +1111,7 @@ function App() {
     setEntries(next);
     await persistEntries(next);
     const total = newEntries.reduce((s, e) => s + e.cost, 0);
-    showToast(`Saved daily time logs for ${newEntries.length} crew member${newEntries.length === 1 ? "" : "s"} — ${fmtMoney(total)}`);
+    showToast(`Saved daily time logs for ${newEntries.length} crew member${newEntries.length === 1 ? "" : "s"} â€” ${fmtMoney(total)}`);
   };
   const addWorker = async (w) => {
     const next = [...workers, w];
@@ -1147,7 +1146,7 @@ function App() {
     const next = { entries: [full, ...cash.entries], nextRef: cash.nextRef + 1 };
     setCash(next);
     await persistCash(next);
-    showToast(`${CASH_TYPES[entry.type].label} logged — ${ref}`);
+    showToast(`${CASH_TYPES[entry.type].label} logged â€” ${ref}`);
   };
   const addTransfer = async ({ fromWorkerId, toWorkerId, amount, description, date }) => {
     const ref = `TRF-${String(cash.nextRef).padStart(5, "0")}`;
@@ -1192,7 +1191,7 @@ function App() {
     const next = { entries: [full, ...otherExpenses.entries], nextRef: otherExpenses.nextRef + 1 };
     setOtherExpenses(next);
     await persistOtherExpenses(next);
-    showToast(`Other expense logged — ${ref}`);
+    showToast(`Other expense logged â€” ${ref}`);
   };
   const deleteOtherExpense = async (id) => {
     const next = { ...otherExpenses, entries: otherExpenses.entries.filter((e) => e.id !== id) };
@@ -1234,7 +1233,7 @@ function App() {
     };
     setAttendance(next);
     await persistAttendance(next);
-    showToast(`Clocked out — ${hours.toFixed(2)}h shift recorded`);
+    showToast(`Clocked out â€” ${hours.toFixed(2)}h shift recorded`);
   };
 
   const addAttendanceRecord = async (record) => {
@@ -1387,9 +1386,9 @@ function App() {
     await persistEntries(nextEntries);
 
     const suspectJobs = nextJobs.filter((j) => !j.clientName || j.clientName === j.projectNo);
-    let msg = `Imported ${importedEntries} entries · ${createdJobs} new jobs · ${createdWorkers} new workers${skipped ? ` · ${skipped} rows skipped` : ""}`;
+    let msg = `Imported ${importedEntries} entries Â· ${createdJobs} new jobs Â· ${createdWorkers} new workers${skipped ? ` Â· ${skipped} rows skipped` : ""}`;
     if (suspectJobs.length) {
-      msg += ` · ⚠ ${suspectJobs.length} job(s) missing a client name (#${suspectJobs.map((j) => j.jobOrderNo).join(", #")}) — check Board and fix via "Edit crew & vehicle" if a Project No got typo'd in the source sheet`;
+      msg += ` Â· âš  ${suspectJobs.length} job(s) missing a client name (#${suspectJobs.map((j) => j.jobOrderNo).join(", #")}) â€” check Board and fix via "Edit crew & vehicle" if a Project No got typo'd in the source sheet`;
     }
     showToast(msg);
   };
@@ -1398,7 +1397,7 @@ function App() {
     return (
       <div className="w-full min-h-[500px] flex items-center justify-center" style={{ background: COLORS.paper }}>
         <style>{FONT_IMPORT}</style>
-        <div className="text-sm animate-pulse" style={{ color: COLORS.steel, fontFamily: "'Inter',sans-serif" }}>Loading dispatch board…</div>
+        <div className="text-sm animate-pulse" style={{ color: COLORS.steel, fontFamily: "'Inter',sans-serif" }}>Loading dispatch boardâ€¦</div>
       </div>
     );
   }
@@ -1474,7 +1473,7 @@ function App() {
             style={{ background: showAppDemo ? "#10B981" : COLORS.safety, color: showAppDemo ? "#fff" : COLORS.steelDark }}
             title="Open live mobile app phone simulator on screen"
           >
-            <Radio size={14} /> {showAppDemo ? "CLOSE MOBILE DEMO" : "📱 LIVE FIELD APP DEMO"}
+            <Radio size={14} /> {showAppDemo ? "CLOSE MOBILE DEMO" : "ðŸ“± LIVE FIELD APP DEMO"}
           </button>
           <div className="flex rounded-md overflow-hidden border" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
             <button
@@ -1518,7 +1517,6 @@ function App() {
             onImportAttendanceRows={importAttendanceRows}
             onAddOtherExpense={addOtherExpense} onDeleteOtherExpense={deleteOtherExpense}
             onUpdateAttendanceTargets={updateAttendanceTargets} onDeleteAttendanceEntry={deleteAttendanceEntry}
-            clockIn={clockIn} clockOut={clockOut} addAttendanceRecord={addAttendanceRecord}
           />
         )
       ) : (
@@ -1575,7 +1573,7 @@ function App() {
 /* ---------------------------------------------------------------------
    DISPATCH VIEW
 --------------------------------------------------------------------- */
-function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, clockIn, clockOut, addAttendanceRecord }) {
+function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract }) {
   const [tab, setTab] = useState("board");
   const [showNewJob, setShowNewJob] = useState(false);
   const [search, setSearch] = useState("");
@@ -1653,7 +1651,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           <div className="flex gap-2 items-center">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" color="#8A8F84" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tickets…"
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search ticketsâ€¦"
                 className={inputCls} style={{ ...inputStyle, paddingLeft: 28, width: 200 }} />
             </div>
             <button onClick={() => setShowNewJob(true)}
@@ -1686,7 +1684,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
               Clear
             </button>
           )}
-          <span className="text-[11px] ml-auto" style={{ color: "#8A8F84" }}>{sortedJobs.length} of {jobOrders.length} tickets{filtersActive ? " · sorted by ticket created date" : ""}</span>
+          <span className="text-[11px] ml-auto" style={{ color: "#8A8F84" }}>{sortedJobs.length} of {jobOrders.length} tickets{filtersActive ? " Â· sorted by ticket created date" : ""}</span>
           <button onClick={() => exportBoardReport(sortedJobs, workers, vehicles, cash, entries, otherExpenses.entries)}
             className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide"
             style={{ background: COLORS.safety, color: COLORS.steelDark }}>
@@ -1756,7 +1754,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
       {tab === "staff" && <StaffPanel workers={workers} categories={categories} vehicles={vehicles} jobOrders={jobOrders} onUpdateWorker={onUpdateWorker} onUpdateVehicle={onUpdateVehicle} />}
       {tab === "shifts" && (
         <AttendancePanel workers={workers} attendance={attendance} entries={entries} categories={categories} jobOrders={jobOrders}
-          onClockIn={clockIn} onClockOut={clockOut} onAddAttendanceRecord={addAttendanceRecord} onDeleteEntry={onDeleteAttendanceEntry} />
+          onClockIn={clockIn} onClockOut={clockOut} onAddAttendanceRecord={addAttendanceRecord} onDeleteEntry={deleteAttendanceEntry} />
       )}
       {tab === "log" && (
         <div>
@@ -1765,7 +1763,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
             <button onClick={() => importInputRef.current?.click()} disabled={importing}
               className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide"
               style={{ background: COLORS.paperDark, color: COLORS.steel, opacity: importing ? 0.6 : 1 }}>
-              <FileText size={14} /> {importing ? "IMPORTING…" : "IMPORT ATTENDANCE (.XLSX)"}
+              <FileText size={14} /> {importing ? "IMPORTINGâ€¦" : "IMPORT ATTENDANCE (.XLSX)"}
             </button>
             <button onClick={() => exportLaborCostReport(workers, jobOrders, entries)}
               className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide"
@@ -1834,18 +1832,18 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
 
       <div className="flex items-center gap-1.5 text-[12px] mb-1" style={{ color: "#5C665C" }}>
         <MapPin size={12} /> {job.area}, {job.emirates}
-        <span className="mx-1">·</span>
-        <span className="mono">{job.projectNo || "—"}</span>
+        <span className="mx-1">Â·</span>
+        <span className="mono">{job.projectNo || "â€”"}</span>
       </div>
 
       <div className="flex items-center gap-1.5 text-[10.5px] mb-2 mono" style={{ color: "#8A8F84" }}>
-        <CalendarDays size={11} /> Created {job.createdDate || "—"}
-        {job.assignedDate && job.assignedDate !== job.createdDate && <span> · Reassigned {job.assignedDate}</span>}
+        <CalendarDays size={11} /> Created {job.createdDate || "â€”"}
+        {job.assignedDate && job.assignedDate !== job.createdDate && <span> Â· Reassigned {job.assignedDate}</span>}
       </div>
 
       <div className="text-[12.5px] mb-3 line-clamp-2" style={{ color: COLORS.ink }}>{job.scope}</div>
 
-      {/* CREW — dispatcher can correct who's assigned; this card only ever renders in Dispatch */}
+      {/* CREW â€” dispatcher can correct who's assigned; this card only ever renders in Dispatch */}
       <div className="mb-3 p-2 rounded-md" style={{ background: COLORS.paper }}>
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: COLORS.steelLight }}>Crew ({assignedWorkers.length})</span>
@@ -1863,7 +1861,7 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: meta.color }} />
                   <span className="font-medium">{w.name}</span>
                   {job.teamLeadId === w.id && (
-                    <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ background: COLORS.safety, color: COLORS.steelDark }} title="Team lead — can log time for the whole crew">LEAD</span>
+                    <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ background: COLORS.safety, color: COLORS.steelDark }} title="Team lead â€” can log time for the whole crew">LEAD</span>
                   )}
                   <span style={{ color: "#8A8F84" }}>{catLabel(categories, w.category)}</span>
                 </span>
@@ -1878,7 +1876,7 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
         {vehicle && (
           <span className="text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "#FBF0DD", color: COLORS.amber }}>
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: vehicleStatusMeta(computeVehicleStatus(vehicle, jobOrders)).color }} />
-            <Truck size={10} /> {vehicle.name}{job.avgOneWayKm ? ` · ${job.avgOneWayKm} km one-way (${(Number(job.avgOneWayKm) * 2).toFixed(0)} km round-trip)` : ""}{job.trips ? ` · ${job.trips} trip${Number(job.trips) === 1 ? "" : "s"}` : ""}
+            <Truck size={10} /> {vehicle.name}{job.avgOneWayKm ? ` Â· ${job.avgOneWayKm} km one-way (${(Number(job.avgOneWayKm) * 2).toFixed(0)} km round-trip)` : ""}{job.trips ? ` Â· ${job.trips} trip${Number(job.trips) === 1 ? "" : "s"}` : ""}
           </span>
         )}
         {(() => {
@@ -2001,7 +1999,7 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
   });
 
   // Inactive workers/vehicles are hidden from assignment, except ones already on
-  // this job — dispatcher still needs to see & be able to remove them.
+  // this job â€” dispatcher still needs to see & be able to remove them.
   const pickableWorkers = workers.filter((w) => w.active !== false || job.workerIds.includes(w.id));
   const pickableVehicles = vehicles.filter((v) => v.active !== false || v.id === job.vehicleId);
 
@@ -2009,11 +2007,11 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(20,25,20,0.45)" }} onClick={onClose}>
       <div className="w-full max-w-sm rounded-lg overflow-hidden max-h-[90vh] overflow-y-auto" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-4 py-3 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
-          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Settings2 size={15} color={COLORS.safety} /> EDIT JOB — #{job.jobOrderNo}</div>
+          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Settings2 size={15} color={COLORS.safety} /> EDIT JOB â€” #{job.jobOrderNo}</div>
           <button onClick={onClose}><X size={16} color="#fff" /></button>
         </div>
         <div className="p-4">
-          <div className="text-[11px] mb-2" style={{ color: "#8A8F84" }}>Dispatcher-only. Correct any detail of this job — useful right after an import if a spreadsheet had a typo. Inactive workers/vehicles are hidden unless already assigned here.</div>
+          <div className="text-[11px] mb-2" style={{ color: "#8A8F84" }}>Dispatcher-only. Correct any detail of this job â€” useful right after an import if a spreadsheet had a typo. Inactive workers/vehicles are hidden unless already assigned here.</div>
 
           <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: COLORS.steelLight }}>Job Details</div>
           <div className="grid grid-cols-2 gap-x-3">
@@ -2085,7 +2083,7 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
             <select className={inputCls} style={inputStyle} value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
               <option value="">No vehicle</option>
               {pickableVehicles.map((v) => (
-                <option key={v.id} value={v.id}>{v.name}{v.active === false ? " (inactive)" : ""} — {computeVehicleStatus(v, jobOrders)} ({fmtMoney(v.ratePerKm)}/km)</option>
+                <option key={v.id} value={v.id}>{v.name}{v.active === false ? " (inactive)" : ""} â€” {computeVehicleStatus(v, jobOrders)} ({fmtMoney(v.ratePerKm)}/km)</option>
               ))}
             </select>
           </Field>
@@ -2116,7 +2114,7 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
               <div className="p-2 rounded-md text-[11px] font-semibold mb-2 flex items-center justify-between" style={{ background: "#FBF0DD", border: `1px solid ${COLORS.amber}`, color: COLORS.steelDark }}>
                 <div className="flex items-center gap-1">
                   <Truck size={13} color={COLORS.amber} />
-                  <span>{v ? v.name : ""} · {oneWay} km one-way ({roundTrip} km round trip) · {tripCount} trip{tripCount === 1 ? "" : "s"}</span>
+                  <span>{v ? v.name : ""} Â· {oneWay} km one-way ({roundTrip} km round trip) Â· {tripCount} trip{tripCount === 1 ? "" : "s"}</span>
                 </div>
                 <div className="mono font-bold" style={{ color: COLORS.steel }}>{fmtMoney(tripCost)}</div>
               </div>
@@ -2167,7 +2165,7 @@ function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, on
 
   const isHold = action === "hold";
   const Icon = isHold ? PauseCircle : Check;
-  const title = isHold ? `HOLD WORK — #${job.jobOrderNo}` : `COMPLETE WORK — #${job.jobOrderNo}`;
+  const title = isHold ? `HOLD WORK â€” #${job.jobOrderNo}` : `COMPLETE WORK â€” #${job.jobOrderNo}`;
   const btnColor = isHold ? "#D97706" : COLORS.go;
   const btnText = isHold ? "HOLD WORK" : "MARK COMPLETED";
   
@@ -2274,7 +2272,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
               </select>
             </Field>
           </div>
-          <Field label="Scope of Work"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 70 }} value={form.scope} onChange={(e) => set("scope", e.target.value)} placeholder="Describe the job…" /></Field>
+          <Field label="Scope of Work"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 70 }} value={form.scope} onChange={(e) => set("scope", e.target.value)} placeholder="Describe the jobâ€¦" /></Field>
 
           <div className="grid grid-cols-2 gap-x-4 mb-1">
             <Field label="Priority">
@@ -2357,7 +2355,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
                 <option value="">No vehicle</option>
                 {activeVehicles.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name} — {computeVehicleStatus(v, jobOrders)} ({fmtMoney(v.ratePerKm)}/km)
+                    {v.name} â€” {computeVehicleStatus(v, jobOrders)} ({fmtMoney(v.ratePerKm)}/km)
                   </option>
                 ))}
               </select>
@@ -2365,7 +2363,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
             <Field label="One-Way Kms">
               <input type="number" min="0" step="0.1" className={inputCls}
                 style={inputStyle}
-                value={form.avgOneWayKm} onChange={(e) => set("avgOneWayKm", e.target.value)} placeholder="e.g. 18" />
+                value={form.avgOneWayKm} onChange={(e) => setAvgOneWayKm(e.target.value)} placeholder="e.g. 18" />
             </Field>
             <Field label="Trips">
               <input type="number" min="1" step="1" className={inputCls}
@@ -2388,7 +2386,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
               <div className="p-2.5 rounded-md text-[11px] font-semibold mb-3 flex items-center justify-between" style={{ background: "#FBF0DD", border: `1px solid ${COLORS.amber}`, color: COLORS.steelDark }}>
                 <div className="flex items-center gap-1.5">
                   <Truck size={14} color={COLORS.amber} />
-                  <span>Vehicle Travel: <strong>{v ? v.name : ""}</strong> · {oneWay} km one-way ({roundTrip} km round trip) · {tripCount} trip{tripCount === 1 ? "" : "s"}</span>
+                  <span>Vehicle Travel: <strong>{v ? v.name : ""}</strong> Â· {oneWay} km one-way ({roundTrip} km round trip) Â· {tripCount} trip{tripCount === 1 ? "" : "s"}</span>
                 </div>
                 <div className="mono font-bold" style={{ color: COLORS.steel }}>{fmtMoney(tripCost)} total</div>
               </div>
@@ -2399,7 +2397,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
             const status = v ? computeVehicleStatus(v, jobOrders) : "Available";
             return status !== "Available" ? (
               <div className="text-[11px] font-semibold mb-3 flex items-center gap-1.5" style={{ color: vehicleStatusMeta(status).color }}>
-                <AlertTriangle size={12} /> {v.name} is currently "{status}" — double-check it's actually free before assigning.
+                <AlertTriangle size={12} /> {v.name} is currently "{status}" â€” double-check it's actually free before assigning.
               </div>
             ) : null;
           })()}
@@ -2438,7 +2436,7 @@ function TimeLogTable({ entries, jobOrders }) {
     <div>
       <div className="relative mb-3 w-64">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" color="#8A8F84" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" className={inputCls} style={{ ...inputStyle, paddingLeft: 28 }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entriesâ€¦" className={inputCls} style={{ ...inputStyle, paddingLeft: 28 }} />
       </div>
       <div className="rounded-lg overflow-hidden" style={{ border: `1.5px solid ${COLORS.line}` }}>
         <div className="overflow-x-auto">
@@ -2457,8 +2455,8 @@ function TimeLogTable({ entries, jobOrders }) {
               {rows.map((e, i) => (
                 <tr key={e.id} style={{ background: i % 2 ? "#fff" : COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
                   <td className="px-3 py-2 mono whitespace-nowrap">{e.date}</td>
-                  <td className="px-3 py-2 mono">{e.job?.jobOrderNo || "—"}</td>
-                  <td className="px-3 py-2">{e.job?.clientName || "—"}</td>
+                  <td className="px-3 py-2 mono">{e.job?.jobOrderNo || "â€”"}</td>
+                  <td className="px-3 py-2">{e.job?.clientName || "â€”"}</td>
                   <td className="px-3 py-2 font-medium">{e.workerName}</td>
                   <td className="px-3 py-2 mono">{e.category}</td>
                   <td className="px-3 py-2 mono">{e.timeIn}</td>
@@ -2499,10 +2497,10 @@ function InvoicesPanel({ jobOrders, vehicles, entries, cash, otherExpenses, onUp
         <div key={j.id} className="ticket p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-[160px]">
-              <div className="mono text-[11px] font-bold" style={{ color: COLORS.steel }}>#{j.jobOrderNo} · {j.quotationRef}</div>
+              <div className="mono text-[11px] font-bold" style={{ color: COLORS.steel }}>#{j.jobOrderNo} Â· {j.quotationRef}</div>
               <div className="disp font-bold">{j.clientName}</div>
               <div className="text-[11px]" style={{ color: "#8A8F84" }}>
-                {j.entryCount} entries · labor {fmtMoney(j.laborCost)}{j.vehicleCost > 0 ? ` + km ${fmtMoney(j.vehicleCost)}` : ""} = {fmtMoney(j.total)}
+                {j.entryCount} entries Â· labor {fmtMoney(j.laborCost)}{j.vehicleCost > 0 ? ` + km ${fmtMoney(j.vehicleCost)}` : ""} = {fmtMoney(j.total)}
               </div>
             </div>
             <div className="flex-1 grid grid-cols-4 gap-2 min-w-[420px]">
@@ -2601,7 +2599,7 @@ function OtherExpenseModal({ job, onClose, onSubmit }) {
         </div>
         <div className="p-5">
           <div className="text-[11px] mb-3" style={{ color: "#8A8F84" }}>
-            For #{job.jobOrderNo} — {job.clientName}. Anything not covered by labor, vehicle km, or a petty-cash material purchase — subcontractors, permits, third-party charges, etc.
+            For #{job.jobOrderNo} â€” {job.clientName}. Anything not covered by labor, vehicle km, or a petty-cash material purchase â€” subcontractors, permits, third-party charges, etc.
           </div>
           <Field label="Amount (AED)" hint="Enter a negative number for a credit/correction.">
             <input type="number" step="0.01" className={inputCls} style={inputStyle} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
@@ -2623,7 +2621,7 @@ function OtherExpenseModal({ job, onClose, onSubmit }) {
 }
 
 // Detailed budget build-up modal: hours/category + materials + consumables +
-// vehicle trips×distance + margin% + a free +/- adjustment. Computes a final
+// vehicle tripsÃ—distance + margin% + a free +/- adjustment. Computes a final
 // quote (budgetAmount) that plugs straight into computeJobFinancials.
 function BudgetBuilderModal({ job, categories, vehicles, onClose, onSave }) {
   const seedHours = job.budgetHours || {};
@@ -2680,7 +2678,7 @@ function BudgetBuilderModal({ job, categories, vehicles, onClose, onSave }) {
       <div className="w-full max-w-lg rounded-lg overflow-hidden max-h-[92vh] overflow-y-auto" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
           <div className="disp text-white font-bold tracking-wide flex items-center gap-2">
-            <Zap size={16} color={COLORS.safety} /> {isReestimate ? `RE-ESTIMATE / REVISE QUOTE — #${job.jobOrderNo} (Rev #${nextRev})` : `DETAILED BUDGET — #${job.jobOrderNo}`}
+            <Zap size={16} color={COLORS.safety} /> {isReestimate ? `RE-ESTIMATE / REVISE QUOTE â€” #${job.jobOrderNo} (Rev #${nextRev})` : `DETAILED BUDGET â€” #${job.jobOrderNo}`}
           </div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
@@ -2749,12 +2747,12 @@ function BudgetBuilderModal({ job, categories, vehicles, onClose, onSave }) {
 }
 
 /* ---------------------------------------------------------------------
-   JOB COSTING — dashboard + detailed per-job cost breakdown
+   JOB COSTING â€” dashboard + detailed per-job cost breakdown
 --------------------------------------------------------------------- */
 // Thin horizontal cost gauge for each job card. The full bar represents the
 // quoted Budget; a marker shows where the Target Cost sits (the cost/margin
 // boundary), and a dark fill shows how far actual spend has moved along it.
-// The track itself is banded into 4 quarters, green → red, as a simple
+// The track itself is banded into 4 quarters, green â†’ red, as a simple
 // at-a-glance "how deep into the budget are we" risk gradient.
 function CostProgressBar({ actualCost, targetCost, budgetAmount }) {
   if (!budgetAmount || budgetAmount <= 0) {
@@ -2847,7 +2845,7 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
           <div className="grid gap-1">
             {[...overrunJobs, ...nearingJobs].map(({ job, f }) => (
               <div key={job.id} className="flex items-center justify-between text-[12px]">
-                <span>#{job.jobOrderNo} — {job.clientName}</span>
+                <span>#{job.jobOrderNo} â€” {job.clientName}</span>
                 <span className="mono font-semibold" style={{ color: BUDGET_STATUS_META[f.budgetStatus].color }}>{f.percentOfTarget.toFixed(0)}% of target</span>
               </div>
             ))}
@@ -2867,14 +2865,14 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
               <button onClick={() => setExpandedId(open ? null : job.id)} className="w-full flex items-center justify-between p-3">
                 <div className="text-left">
                   <div className="text-sm font-semibold flex items-center gap-2">
-                    #{job.jobOrderNo} — {job.clientName}
+                    #{job.jobOrderNo} â€” {job.clientName}
                     {f.targetCost > 0 && (
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ color: meta.color, background: `${meta.color}1A` }}>
                         {f.budgetStatus !== "on-track" && f.budgetStatus !== "no-budget" && <AlertTriangle size={10} />} {meta.label}
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px]" style={{ color: "#8A8F84" }}>{job.projectNo} · {job.status}</div>
+                  <div className="text-[11px]" style={{ color: "#8A8F84" }}>{job.projectNo} Â· {job.status}</div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="mono text-sm font-bold">{fmtMoney(f.actualCost)}</span>
@@ -2910,7 +2908,7 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
                       <div className="grid gap-1">
                         {f.otherExpenseEntries.map((e) => (
                           <div key={e.id} className="flex items-center justify-between text-[11px] py-1" style={{ borderBottom: `1px solid ${COLORS.paper}` }}>
-                            <span><span className="mono opacity-60 mr-1.5">{e.ref}</span>{e.description} · {e.date}</span>
+                            <span><span className="mono opacity-60 mr-1.5">{e.ref}</span>{e.description} Â· {e.date}</span>
                             <span className="flex items-center gap-2">
                               <span className="mono font-semibold">{fmtMoney(e.amount)}</span>
                               <button onClick={() => onDeleteOtherExpense(e.id)} title="Remove"><X size={12} color={COLORS.urgent} /></button>
@@ -3075,7 +3073,7 @@ function EstimationsPanel({ jobOrders, workers, vehicles, categories, entries, c
               <Truck size={12} color={COLORS.safety} /> Fleet &amp; Distance
             </div>
             <div className="disp text-2xl font-bold mt-1 text-white">
-              {totals.totalTrips} <span className="text-xs font-normal text-white/60">trips</span> · {totals.totalKms.toLocaleString()} <span className="text-xs font-normal text-white/60">kms</span>
+              {totals.totalTrips} <span className="text-xs font-normal text-white/60">trips</span> Â· {totals.totalKms.toLocaleString()} <span className="text-xs font-normal text-white/60">kms</span>
             </div>
           </div>
           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] flex justify-between">
@@ -3203,7 +3201,7 @@ function EstimationsPanel({ jobOrders, workers, vehicles, categories, entries, c
                             <Calendar size={10} /> {job.estimatedDays || 1} Day{Number(job.estimatedDays) > 1 ? "s" : ""} Work
                           </span>
                         </div>
-                        <div className="text-[10px] text-gray-500">{job.emirates || "Dubai"} · {job.projectNo || "No Proj Ref"}</div>
+                        <div className="text-[10px] text-gray-500">{job.emirates || "Dubai"} Â· {job.projectNo || "No Proj Ref"}</div>
                       </td>
 
                       <td className="p-3">
@@ -3225,7 +3223,7 @@ function EstimationsPanel({ jobOrders, workers, vehicles, categories, entries, c
                       <td className="p-3">
                         <div className="font-semibold text-gray-800">{assignedVeh ? assignedVeh.name : "No Vehicle"}</div>
                         <div className="text-[11px] text-gray-600 mt-0.5">
-                          <span className="font-mono font-bold">{trips}</span> trips × <span className="font-mono">{distance}</span> km ({totalKms} total km)
+                          <span className="font-mono font-bold">{trips}</span> trips Ã— <span className="font-mono">{distance}</span> km ({totalKms} total km)
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5">Travel Cost: {fmtMoney(calc.vehicleCost)}</div>
                       </td>
@@ -3290,7 +3288,7 @@ function EstimationsPanel({ jobOrders, workers, vehicles, categories, entries, c
                         <td colSpan={9} className="p-4">
                           <div className="rounded-lg p-4 bg-white border border-gray-200 shadow-inner">
                             <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: COLORS.steelDark }}>
-                              DETAILED ESTIMATION &amp; LIVE WORK BREAKDOWN — JOB #{job.jobOrderNo}
+                              DETAILED ESTIMATION &amp; LIVE WORK BREAKDOWN â€” JOB #{job.jobOrderNo}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                               <div className="p-3 rounded bg-slate-50 border border-slate-200">
@@ -3349,7 +3347,7 @@ function EstimationsPanel({ jobOrders, workers, vehicles, categories, entries, c
                                   {job.estimationHistory.map((h, idx) => (
                                     <div key={idx} className="p-2 rounded bg-slate-50 border border-slate-200 flex items-center justify-between text-[11px]">
                                       <div>
-                                        <span className="font-bold text-slate-800">Rev #{h.revision}</span> ({h.date}) — <span className="font-semibold text-slate-700">{h.reason}</span>
+                                        <span className="font-bold text-slate-800">Rev #{h.revision}</span> ({h.date}) â€” <span className="font-semibold text-slate-700">{h.reason}</span>
                                       </div>
                                       <div className="font-mono text-slate-700">
                                         Target Cost: <span className="line-through text-slate-400">{fmtMoney(h.previousCostCeiling)}</span> &rarr; <span className="font-bold">{fmtMoney(h.newCostCeiling)}</span> | 
@@ -3528,7 +3526,7 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
             <div className="disp text-2xl font-bold mt-1 text-white">{fleetMetrics.totalCount} <span className="text-xs font-normal text-white/60">vehicles</span></div>
           </div>
           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-white/70">
-            {fleetMetrics.availableCount} Ready · {fleetMetrics.inUseCount + fleetMetrics.scheduledCount} Assigned
+            {fleetMetrics.availableCount} Ready Â· {fleetMetrics.inUseCount + fleetMetrics.scheduledCount} Assigned
           </div>
         </div>
 
@@ -3562,7 +3560,7 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
               <Clock size={12} color={COLORS.safety} /> Fleet Distance &amp; Trips
             </div>
             <div className="disp text-2xl font-bold mt-1 text-white">
-              {fleetMetrics.totalTrips} <span className="text-xs font-normal text-white/60">trips</span> · {fleetMetrics.totalKms.toLocaleString()} <span className="text-xs font-normal text-white/60">kms</span>
+              {fleetMetrics.totalTrips} <span className="text-xs font-normal text-white/60">trips</span> Â· {fleetMetrics.totalKms.toLocaleString()} <span className="text-xs font-normal text-white/60">kms</span>
             </div>
           </div>
           <div className="mt-2 pt-2 border-t border-white/10 text-[11px] flex justify-between">
@@ -3680,7 +3678,7 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
                       <td className="p-3">
                         {activeJob ? (
                           <div>
-                            <span className="font-bold disp text-slate-800">#{activeJob.jobOrderNo}</span> — <span className="text-gray-700">{activeJob.clientName}</span>
+                            <span className="font-bold disp text-slate-800">#{activeJob.jobOrderNo}</span> â€” <span className="text-gray-700">{activeJob.clientName}</span>
                             <div className="text-[10px] text-gray-500 mt-0.5">Crew: {activeCrew.map((c) => c.name).join(", ") || "No crew"}</div>
                           </div>
                         ) : (
@@ -3713,7 +3711,7 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
                         <td colSpan={7} className="p-4">
                           <div className="rounded-lg p-4 bg-white border border-gray-200 shadow-inner">
                             <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: COLORS.steelDark }}>
-                              FLEET ASSIGNMENT &amp; TRIP HISTORY — {vehicle.name}
+                              FLEET ASSIGNMENT &amp; TRIP HISTORY â€” {vehicle.name}
                             </div>
                             {assignedJobs.length === 0 ? (
                               <div className="text-xs text-gray-500 italic">No job orders assigned to this vehicle yet.</div>
@@ -3728,11 +3726,11 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
                                   return (
                                     <div key={j.id} className="p-2.5 rounded bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
                                       <div>
-                                        <span className="font-bold disp text-slate-800">#{j.jobOrderNo}</span> — <span className="font-semibold text-slate-700">{j.clientName}</span> ({j.emirates})
-                                        <div className="text-[10px] text-slate-500">{j.scope || "Service Job"} · Status: {j.status}</div>
+                                        <span className="font-bold disp text-slate-800">#{j.jobOrderNo}</span> â€” <span className="font-semibold text-slate-700">{j.clientName}</span> ({j.emirates})
+                                        <div className="text-[10px] text-slate-500">{j.scope || "Service Job"} Â· Status: {j.status}</div>
                                       </div>
                                       <div className="text-right font-mono">
-                                        <div className="font-bold text-slate-800">{trips} trips × {dist} km = {totalDist} kms</div>
+                                        <div className="font-bold text-slate-800">{trips} trips Ã— {dist} km = {totalDist} kms</div>
                                         <div className="text-[11px] text-emerald-700 font-bold">Cost: {fmtMoney(cost)}</div>
                                       </div>
                                     </div>
@@ -3803,7 +3801,7 @@ function FleetPanel({ vehicles, jobOrders, workers, onAddVehicle, onUpdateVehicl
           <div className="w-full max-w-md rounded-lg overflow-hidden" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
               <div className="disp text-white font-bold tracking-wide flex items-center gap-2">
-                <Truck size={16} color={COLORS.safety} /> EDIT VEHICLE — {editingVeh.name}
+                <Truck size={16} color={COLORS.safety} /> EDIT VEHICLE â€” {editingVeh.name}
               </div>
               <button onClick={() => setEditingVeh(null)}><X size={18} color="#fff" /></button>
             </div>
@@ -3931,7 +3929,7 @@ function RosterPanel({ workers, vehicles, categories, jobOrders, onAddWorker, on
           <div className="flex flex-wrap gap-1.5 mb-2">
             {categories.map((c) => (
               <span key={c.code} className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "#E7ECEF", color: COLORS.steel }}>
-                {c.label} <span className="mono opacity-60">{c.code}</span> · {fmtMoney(c.rate)}
+                {c.label} <span className="mono opacity-60">{c.code}</span> Â· {fmtMoney(c.rate)}
               </span>
             ))}
           </div>
@@ -4026,7 +4024,7 @@ function RosterPanel({ workers, vehicles, categories, jobOrders, onAddWorker, on
    STAFF AVAILABILITY
 --------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------
-   ATTENDANCE — date-wise & person-wise attendance register & leave log.
+   ATTENDANCE â€” date-wise & person-wise attendance register & leave log.
 --------------------------------------------------------------------- */
 function AttendancePanel({ workers, attendance, entries, categories, jobOrders, onClockIn, onClockOut, onAddAttendanceRecord, onDeleteEntry }) {
   const [selectedWorkerId, setSelectedWorkerId] = useState("all");
@@ -4128,20 +4126,20 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
         const assignedJob = (jobOrders || []).find((j) => j.workerIds.includes(w.id) && j.status !== "Completed")
           || (jobOrders || []).find((j) => j.workerIds.includes(w.id));
 
-        let loginTime = "—";
-        let logoutTime = "—";
+        let loginTime = "â€”";
+        let logoutTime = "â€”";
         let hours = 0;
         let status = "Leave";
         let attId = att ? att.id : null;
 
         if (att) {
-          loginTime = att.clockInTime || "—";
-          logoutTime = att.clockOutTime ? `${att.clockOutDate !== att.clockInDate ? att.clockOutDate + " " : ""}${att.clockOutTime}` : "—";
+          loginTime = att.clockInTime || "â€”";
+          logoutTime = att.clockOutTime ? `${att.clockOutDate !== att.clockInDate ? att.clockOutDate + " " : ""}${att.clockOutTime}` : "â€”";
           hours = att.hours != null ? att.hours : 0;
           status = att.status === "open" ? "On Shift" : "Present";
         } else if (jobLog) {
-          loginTime = jobLog.timeIn || "—";
-          logoutTime = jobLog.timeOut || "—";
+          loginTime = jobLog.timeIn || "â€”";
+          logoutTime = jobLog.timeOut || "â€”";
           hours = jobLog.hours || 0;
           status = "Present (Job Logged)";
         } else if (w.availability === "On Leave") {
@@ -4188,8 +4186,8 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
       "Working Hours": Number(m.hours.toFixed(2)),
       "Attendance Status": m.status,
       "Assigned Service Request": m.assignedJob ? `#${m.assignedJob.jobOrderNo} - ${m.assignedJob.clientName}` : "None",
-      "SR Status": m.assignedJob ? m.assignedJob.status : "—",
-      "Scope & Area": m.assignedJob ? `${m.assignedJob.area}, ${m.assignedJob.emirates} · ${m.assignedJob.scope}` : "—",
+      "SR Status": m.assignedJob ? m.assignedJob.status : "â€”",
+      "Scope & Area": m.assignedJob ? `${m.assignedJob.area}, ${m.assignedJob.emirates} Â· ${m.assignedJob.scope}` : "â€”",
     }));
     const ws1 = XLSX.utils.json_to_sheet(exportRows);
     XLSX.utils.book_append_sheet(wb, ws1, "Attendance Log");
@@ -4390,7 +4388,7 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
                       <div>
                         <div className="font-bold text-[12px] flex items-center gap-1.5 whitespace-nowrap" style={{ color: COLORS.steel }}>
                           <span>#{m.assignedJob.jobOrderNo}</span>
-                          <span>—</span>
+                          <span>â€”</span>
                           <span>{m.assignedJob.clientName}</span>
                           <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded" style={{
                             color: m.assignedJob.status === "In Progress" ? COLORS.amber : m.assignedJob.status === "Completed" ? COLORS.go : COLORS.steel,
@@ -4400,7 +4398,7 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
                           </span>
                         </div>
                         <div className="text-[10px] truncate max-w-[240px]" style={{ color: "#8A8F84" }}>
-                          {m.assignedJob.area}, {m.assignedJob.emirates} · {m.assignedJob.scope}
+                          {m.assignedJob.area}, {m.assignedJob.emirates} Â· {m.assignedJob.scope}
                         </div>
                       </div>
                     ) : (
@@ -4484,7 +4482,7 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
                 >
                   {workers.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.name} — {catLabel(categories, w.category)}
+                      {w.name} â€” {catLabel(categories, w.category)}
                     </option>
                   ))}
                 </select>
@@ -4674,7 +4672,7 @@ function StaffPanel({ workers, categories, vehicles, jobOrders, onUpdateWorker, 
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: vehicleStatusMeta(status).color }} /> {status}
                 </span>
               </div>
-              {job && <div className="text-[11px] mb-2" style={{ color: "#8A8F84" }}>#{job.jobOrderNo} — {job.clientName}</div>}
+              {job && <div className="text-[11px] mb-2" style={{ color: "#8A8F84" }}>#{job.jobOrderNo} â€” {job.clientName}</div>}
               <div className="flex flex-wrap gap-1">
                 <button onClick={() => onUpdateVehicle(v.id, { status: null })}
                   className="text-[10px] font-semibold px-2 py-1 rounded-md"
@@ -4866,7 +4864,7 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
 
   return (
     <div>
-      {/* filter bar — also drives what "Download Report" exports */}
+      {/* filter bar â€” also drives what "Download Report" exports */}
       <div className="flex flex-wrap items-center gap-2 mb-4 p-2.5 rounded-lg" style={{ background: COLORS.paperDark }}>
         <span className="text-[10px] font-semibold uppercase tracking-wide mr-1" style={{ color: COLORS.steelLight }}>Filter:</span>
         <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
@@ -4913,7 +4911,7 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
             <div className="text-[10px] text-white/50 uppercase tracking-wide">Income</div>
           </div>
           <div className="text-center">
-            <div className="mono text-sm font-bold" style={{ color: COLORS.urgent }}>−{fmtMoney(totalExpenses)}</div>
+            <div className="mono text-sm font-bold" style={{ color: COLORS.urgent }}>âˆ’{fmtMoney(totalExpenses)}</div>
             <div className="text-[10px] text-white/50 uppercase tracking-wide">Expenses</div>
           </div>
         </div>
@@ -4947,16 +4945,16 @@ function PettyCashPanel({ workers, categories, jobOrders, cash, onAddCashEntry, 
                           <div className="min-w-[130px]">
                             <div>
                               <span className="mono opacity-60 mr-1.5">{e.ref}</span>
-                              {meta.label}{e.projectNo ? ` · ${e.projectNo}` : ""}
+                              {meta.label}{e.projectNo ? ` Â· ${e.projectNo}` : ""}
                               {e.receipt && <Paperclip size={10} className="inline ml-1 -mt-0.5" color={COLORS.steel} />}
                             </div>
                             <div className="text-[10px]" style={{ color: "#8A8F84" }}>{e.date}</div>
                           </div>
                           <Switch checked={!!e.postedToFinance} onChange={(v) => onUpdateCashEntry(e.id, { postedToFinance: v })} label={e.postedToFinance ? "Tally Posted" : "Not Posted"} />
                           <span className="mono font-semibold" style={{ color: meta.sign > 0 ? COLORS.go : COLORS.urgent }}>
-                            {meta.sign > 0 ? "+" : "−"}{fmtMoney(e.amount)}
+                            {meta.sign > 0 ? "+" : "âˆ’"}{fmtMoney(e.amount)}
                           </span>
-                          {/* Admin-only — this panel only renders on the Dispatch side */}
+                          {/* Admin-only â€” this panel only renders on the Dispatch side */}
                           <div className="flex items-center gap-2">
                             <button onClick={() => setEditEntry(e)} title="Edit entry"><Settings2 size={13} color={COLORS.steel} /></button>
                             <button onClick={() => { if (window.confirm(`Delete entry ${e.ref}? This can't be undone.`)) onDeleteCashEntry(e.id); }} title="Delete entry"><X size={13} color={COLORS.urgent} /></button>
@@ -5026,19 +5024,19 @@ function EditCashEntryModal({ entry, jobOrders, onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(20,25,20,0.5)" }}>
       <div className="w-full sm:max-w-sm rounded-t-xl sm:rounded-xl overflow-hidden" style={{ background: COLORS.paper }}>
         <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
-          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Settings2 size={16} color={COLORS.safety} /> EDIT ENTRY — {entry.ref}</div>
+          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Settings2 size={16} color={COLORS.safety} /> EDIT ENTRY â€” {entry.ref}</div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
         <div className="p-5">
           <div className="text-[11px] mb-3" style={{ color: "#8A8F84" }}>
-            {meta.label}{isTransfer ? " — editing the amount updates both sides of this transfer." : ""}
+            {meta.label}{isTransfer ? " â€” editing the amount updates both sides of this transfer." : ""}
           </div>
           <Field label="Amount (AED)"><input type="number" step="0.01" className={inputCls} style={inputStyle} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           {showProject && (
             <Field label="Project No">
               <select className={inputCls} style={inputStyle} value={projectNo} onChange={(e) => setProjectNo(e.target.value)}>
                 <option value="">No specific project</option>
-                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} — {j.clientName}</option>)}
+                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} â€” {j.clientName}</option>)}
               </select>
             </Field>
           )}
@@ -5047,7 +5045,7 @@ function EditCashEntryModal({ entry, jobOrders, onClose, onSave }) {
           {entry.type === "expense" && (
             <Field label="Receipt / Invoice (optional)">
               <input type="file" accept="image/*,.pdf" onChange={handleFile} className="text-xs" />
-              {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading file…</div>}
+              {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading fileâ€¦</div>}
               {receipt && receipt.startsWith("data:image") && (
                 <img src={receipt} alt="receipt" className="mt-2 rounded-md max-h-32 border" style={{ borderColor: COLORS.line }} />
               )}
@@ -5146,8 +5144,8 @@ function CashActionModal({ type, worker, workers, jobOrders, onWorkerChange, onC
           {type === "expense" && (
             <Field label="Project No" hint="Which job this expense belongs to">
               <select className={inputCls} style={inputStyle} value={projectNo} onChange={(e) => setProjectNo(e.target.value)}>
-                <option value="">Select project…</option>
-                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} — {j.clientName}</option>)}
+                <option value="">Select projectâ€¦</option>
+                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} â€” {j.clientName}</option>)}
               </select>
             </Field>
           )}
@@ -5155,7 +5153,7 @@ function CashActionModal({ type, worker, workers, jobOrders, onWorkerChange, onC
             <Field label="Project No (optional)">
               <select className={inputCls} style={inputStyle} value={projectNo} onChange={(e) => setProjectNo(e.target.value)}>
                 <option value="">No specific project</option>
-                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} — {j.clientName}</option>)}
+                {jobOrders.map((j) => <option key={j.id} value={j.projectNo || j.jobOrderNo}>{j.projectNo || j.jobOrderNo} â€” {j.clientName}</option>)}
               </select>
             </Field>
           )}
@@ -5172,7 +5170,7 @@ function CashActionModal({ type, worker, workers, jobOrders, onWorkerChange, onC
           {type === "expense" && (
             <Field label="Receipt / Invoice (optional)">
               <input type="file" accept="image/*,.pdf" onChange={handleFile} className="text-xs" />
-              {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading file…</div>}
+              {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading fileâ€¦</div>}
               {receipt && receipt.startsWith("data:image") && (
                 <img src={receipt} alt="receipt" className="mt-2 rounded-md max-h-32 border" style={{ borderColor: COLORS.line }} />
               )}
@@ -5244,12 +5242,12 @@ function WorkerCashPanel({ worker, workers, jobOrders, cash, onAddCashEntry, onA
                     {e.receipt && <Paperclip size={11} color={COLORS.steel} />}
                   </div>
                   <div className="text-[11px]" style={{ color: "#8A8F84" }}>
-                    {e.date}{e.projectNo ? ` · Project ${e.projectNo}` : ""}{counterpart ? ` · ${e.type === "transfer_out" ? "to" : "from"} ${counterpart.name}` : ""}
+                    {e.date}{e.projectNo ? ` Â· Project ${e.projectNo}` : ""}{counterpart ? ` Â· ${e.type === "transfer_out" ? "to" : "from"} ${counterpart.name}` : ""}
                   </div>
                   {e.description && <div className="text-[11px] mt-0.5">{e.description}</div>}
                 </div>
                 <div className="mono text-sm font-bold" style={{ color: meta.sign > 0 ? COLORS.go : COLORS.urgent }}>
-                  {meta.sign > 0 ? "+" : "−"}{fmtMoney(e.amount)}
+                  {meta.sign > 0 ? "+" : "âˆ’"}{fmtMoney(e.amount)}
                 </div>
               </div>
               {e.type === "expense" && (
@@ -5285,7 +5283,7 @@ function WorkerCashPanel({ worker, workers, jobOrders, cash, onAddCashEntry, onA
 }
 
 // Field-side, worker-scoped: the only thing an employee can change on their own
-// petty cash entry is the receipt image — amount/date/description stay
+// petty cash entry is the receipt image â€” amount/date/description stay
 // admin-only (see EditCashEntryModal, Dispatch-only).
 function EditAttachmentModal({ entry, onClose, onSave }) {
   const [receipt, setReceipt] = useState(entry.receipt || null);
@@ -5314,7 +5312,7 @@ function EditAttachmentModal({ entry, onClose, onSave }) {
           <div className="text-[11px] mb-3" style={{ color: "#8A8F84" }}>You can update the receipt photo for this expense. The amount, date, and note can only be changed by your dispatcher.</div>
           <Field label="Receipt / Invoice">
             <input type="file" accept="image/*,.pdf" onChange={handleFile} className="text-xs" />
-            {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading file…</div>}
+            {uploading && <div className="text-[11px] mt-1" style={{ color: "#8A8F84" }}>Reading fileâ€¦</div>}
             {receipt && receipt.startsWith("data:image") && (
               <img src={receipt} alt="receipt" className="mt-2 rounded-md max-h-40 border" style={{ borderColor: COLORS.line }} />
             )}
@@ -5350,7 +5348,7 @@ function ClockCard({ worker, attendance, onClockIn, onClockOut }) {
     <div className="mb-4 rounded-lg p-3 flex items-center justify-between" style={{ background: openShift ? COLORS.go : COLORS.steelDark }}>
       <div>
         <div className="text-[10px] uppercase tracking-widest text-white/60">
-          {openShift ? `Clocked in ${openShift.clockInTime}${isNightSoFar ? ` · ${openShift.clockInDate}` : ""}` : "Not clocked in"}
+          {openShift ? `Clocked in ${openShift.clockInTime}${isNightSoFar ? ` Â· ${openShift.clockInDate}` : ""}` : "Not clocked in"}
         </div>
         <div className="disp text-lg font-bold text-white">{openShift ? "ON SHIFT" : "OFF SHIFT"}</div>
       </div>
@@ -5392,13 +5390,13 @@ function MyShiftsPanel({ worker, attendance, entries }) {
         <ShiftStat label="This Month" value={monthHours} target={targets.monthly} />
       </div>
       <div className="grid gap-2">
-        {myShifts.length === 0 && <EmptyState text="No shifts recorded yet — clock in above to start one." />}
+        {myShifts.length === 0 && <EmptyState text="No shifts recorded yet â€” clock in above to start one." />}
         {myShifts.map((a) => (
           <div key={a.id} className="p-3 rounded-lg flex items-center justify-between" style={{ background: "#fff", border: `1.5px solid ${COLORS.line}` }}>
             <div>
               <div className="text-sm font-semibold mono">
                 {a.clockInDate} {a.clockInTime}
-                {a.clockOutTime ? ` → ${a.clockOutDate !== a.clockInDate ? `${a.clockOutDate} ` : ""}${a.clockOutTime}` : ""}
+                {a.clockOutTime ? ` â†’ ${a.clockOutDate !== a.clockInDate ? `${a.clockOutDate} ` : ""}${a.clockOutTime}` : ""}
               </div>
               <div className="text-[11px]" style={{ color: "#8A8F84" }}>{a.status === "open" ? "In progress" : `${a.hours.toFixed(2)}h shift`}</div>
             </div>
@@ -5524,7 +5522,7 @@ function LogCrewTimeModal({ job, workers, categories, entries, onClose, onSubmit
       <div className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ background: COLORS.steelDark }}>
           <div className="disp text-white font-bold text-base tracking-wide flex items-center gap-2">
-            <Users size={18} color={COLORS.safety} /> MANAGE CREW DAILY LOGS — #{job.jobOrderNo}
+            <Users size={18} color={COLORS.safety} /> MANAGE CREW DAILY LOGS â€” #{job.jobOrderNo}
           </div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
@@ -5580,7 +5578,7 @@ function LogCrewTimeModal({ job, workers, categories, entries, onClose, onSubmit
                   <button key={w.id} type="button" onClick={() => toggleBatch(w.id)}
                     className="flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium"
                     style={{ background: batchSelected.includes(w.id) ? "#E7ECEF" : "transparent", color: COLORS.ink }}>
-                    <span>{w.name} <span className="mono opacity-50">({w.category} · {fmtMoney(w.rate)}/day)</span></span>
+                    <span>{w.name} <span className="mono opacity-50">({w.category} Â· {fmtMoney(w.rate)}/day)</span></span>
                     {batchSelected.includes(w.id) && <Check size={13} color={COLORS.steel} />}
                   </button>
                 ))}
@@ -5697,7 +5695,7 @@ function SupervisorJobModal({ job, vehicles, onSave, onClose }) {
       <div className="w-full max-w-md rounded-xl overflow-hidden shadow-2xl" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
           <div className="disp text-white font-bold text-base tracking-wide flex items-center gap-2">
-            <ShieldCheck size={18} color={COLORS.safety} /> SUPERVISOR EDIT — #{job.jobOrderNo}
+            <ShieldCheck size={18} color={COLORS.safety} /> SUPERVISOR EDIT â€” #{job.jobOrderNo}
           </div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
@@ -5746,7 +5744,7 @@ function SupervisorJobModal({ job, vehicles, onSave, onClose }) {
               <div className="flex items-center gap-2">
                 <Truck size={16} color={COLORS.amber} />
                 <div>
-                  <div>{v ? v.name : "Vehicle"} · {oneWay} km one-way ({roundTrip} km round trip)</div>
+                  <div>{v ? v.name : "Vehicle"} Â· {oneWay} km one-way ({roundTrip} km round trip)</div>
                   <div className="text-[10px] text-gray-600">{tripCount} trip{tripCount === 1 ? "" : "s"} allocated</div>
                 </div>
               </div>
@@ -5803,7 +5801,7 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
     }) : [];
   const myHistory = workerId ? entries.filter((e) => e.workerId === workerId).sort((a, b) => b.createdAt - a.createdAt) : [];
 
-  if (workers.length === 0) return <div className="p-5 text-sm" style={{ color: "#8A8F84" }}>No workers in the roster yet — add one from the Dispatch → Roster tab.</div>;
+  if (workers.length === 0) return <div className="p-5 text-sm" style={{ color: "#8A8F84" }}>No workers in the roster yet â€” add one from the Dispatch â†’ Roster tab.</div>;
 
   if (!me) {
     return <FieldLogin workers={workers} onLogin={(id) => { setWorkerId(id); setTab("tickets"); }} />;
@@ -5818,7 +5816,7 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
         </div>
         <div className="flex-1">
           <div className="disp text-white font-bold text-base tracking-wide">{me.name}</div>
-          <div className="text-[11px] text-white/50">{catLabel(categories, me.category)} · {fmtMoney(me.rate)}/day</div>
+          <div className="text-[11px] text-white/50">{catLabel(categories, me.category)} Â· {fmtMoney(me.rate)}/day</div>
         </div>
         <button onClick={() => setWorkerId(null)} className="text-[11px] font-semibold px-2.5 py-1 rounded-md cursor-pointer" style={{ background: "rgba(255,255,255,0.12)", color: "#fff" }}>
           Sign out
@@ -5827,7 +5825,7 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
 
       <ClockCard worker={me} attendance={attendance} onClockIn={onClockIn} onClockOut={onClockOut} />
 
-      {/* self-reported availability — "On Job" is automatic from active assignments;
+      {/* self-reported availability â€” "On Job" is automatic from active assignments;
           these buttons only set the manual overrides */}
       <div className="mb-1 flex items-center gap-1.5">
         <span className="text-[11px]" style={{ color: "#8A8F84" }}>Status:</span>
@@ -5901,7 +5899,7 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
                 {vehicle && (
                   <div className="flex items-center gap-1.5 text-[12px] font-semibold mb-3 p-2 rounded" style={{ background: "#FBF0DD", color: COLORS.steelDark, border: `1px solid ${COLORS.amber}` }}>
                     <Truck size={13} color={COLORS.amber} />
-                    <span>{vehicle.name}{j.avgOneWayKm ? ` · ${j.avgOneWayKm} km one-way (${roundTrip} km round trip)` : ""} · {trips} trip{trips === 1 ? "" : "s"}</span>
+                    <span>{vehicle.name}{j.avgOneWayKm ? ` Â· ${j.avgOneWayKm} km one-way (${roundTrip} km round trip)` : ""} Â· {trips} trip{trips === 1 ? "" : "s"}</span>
                   </div>
                 )}
                 {j.status === "On Hold" && (
@@ -5973,8 +5971,8 @@ function FieldView({ initialWorkerId, workers, vehicles, categories, jobOrders, 
             return (
               <div key={e.id} className="p-3 rounded-lg flex items-center justify-between" style={{ background: "#fff", border: `1.5px solid ${COLORS.line}` }}>
                 <div>
-                  <div className="text-sm font-semibold">{job?.clientName || "—"} <span className="mono text-[11px] opacity-60">#{job?.jobOrderNo}</span></div>
-                  <div className="text-[11px] mono" style={{ color: "#8A8F84" }}>{e.date} · {e.timeIn}–{e.timeOut} · {e.hours.toFixed(2)}h</div>
+                  <div className="text-sm font-semibold">{job?.clientName || "â€”"} <span className="mono text-[11px] opacity-60">#{job?.jobOrderNo}</span></div>
+                  <div className="text-[11px] mono" style={{ color: "#8A8F84" }}>{e.date} Â· {e.timeIn}â€“{e.timeOut} Â· {e.hours.toFixed(2)}h</div>
                 </div>
                 <div className="mono text-sm font-bold">{fmtMoney(e.cost)}</div>
               </div>
@@ -6122,7 +6120,7 @@ function FieldLogin({ workers, onLogin }) {
   const submit = () => {
     const w = workers.find((x) => x.id === selected);
     if (!w) return;
-    if (!w.pin) { onLogin(w.id); return; } // no PIN set yet — allow through, dispatcher hasn't configured one
+    if (!w.pin) { onLogin(w.id); return; } // no PIN set yet â€” allow through, dispatcher hasn't configured one
     if (pin.trim() === String(w.pin)) {
       setError(""); onLogin(w.id);
     } else {
@@ -6152,7 +6150,7 @@ function FieldLogin({ workers, onLogin }) {
             onChange={(e) => setPin(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
             className={inputCls} style={{ ...inputStyle, letterSpacing: "0.3em", textAlign: "center", fontSize: 18 }}
-            placeholder="••••"
+            placeholder="â€¢â€¢â€¢â€¢"
           />
         </Field>
         {error && <div className="text-[12px] font-medium mb-3" style={{ color: COLORS.urgent }}>{error}</div>}
@@ -6245,7 +6243,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                placeholder="••••••••"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 className="w-full text-xs font-semibold rounded-lg pl-9 pr-10 py-2.5 bg-gray-50 focus:bg-white"
                 style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
                 required
@@ -6371,7 +6369,7 @@ function AdminLoginModal({ onClose, onSuccess }) {
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                placeholder="••••••••"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 className="w-full text-xs font-semibold rounded-lg pl-9 pr-10 py-2.5 bg-gray-50 focus:bg-white"
                 style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
                 required
@@ -6435,7 +6433,7 @@ function LogEntryModal({ job, worker, categories, onClose, onSubmit }) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: "rgba(20,25,20,0.5)" }}>
       <div className="w-full sm:max-w-md rounded-t-xl sm:rounded-xl overflow-hidden" style={{ background: COLORS.paper }}>
         <div className="px-5 py-4 flex items-center justify-between" style={{ background: COLORS.steelDark }}>
-          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Stamp size={16} color={COLORS.safety} /> LOG TIME — #{job.jobOrderNo}</div>
+          <div className="disp text-white font-bold tracking-wide flex items-center gap-2"><Stamp size={16} color={COLORS.safety} /> LOG TIME â€” #{job.jobOrderNo}</div>
           <button onClick={onClose}><X size={18} color="#fff" /></button>
         </div>
         <div className="p-5">
@@ -6448,7 +6446,7 @@ function LogEntryModal({ job, worker, categories, onClose, onSubmit }) {
 
           <div className="rounded-lg p-3 mb-4 flex items-center justify-between" style={{ background: "#fff", border: `1.5px solid ${COLORS.line}` }}>
             <div className="text-[11px]" style={{ color: "#8A8F84" }}>
-              <div className="mono">{hours.toFixed(2)} hrs · {days.toFixed(3)} days</div>
+              <div className="mono">{hours.toFixed(2)} hrs Â· {days.toFixed(3)} days</div>
               <div>{catLabel(categories, worker.category)} rate {fmtMoney(worker.rate)}/day</div>
             </div>
             <div className="disp text-xl font-bold" style={{ color: COLORS.steel }}>{fmtMoney(cost)}</div>

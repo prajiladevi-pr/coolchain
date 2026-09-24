@@ -249,6 +249,7 @@ const toLocalDateStr = (d) => {
 };
 const todayISO = () => toLocalDateStr(new Date());
 const nowHHMM = () => new Date().toTimeString().slice(0, 5);
+const genId = (prefix) => prefix + Math.random().toString(36).substr(2, 6);
 const fmtMoney = (n) => "AED " + (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -1517,6 +1518,7 @@ function App() {
             onImportAttendanceRows={importAttendanceRows}
             onAddOtherExpense={addOtherExpense} onDeleteOtherExpense={deleteOtherExpense}
             onUpdateAttendanceTargets={updateAttendanceTargets} onDeleteAttendanceEntry={deleteAttendanceEntry}
+            clockIn={clockIn} clockOut={clockOut} addAttendanceRecord={addAttendanceRecord}
           />
         )
       ) : (
@@ -1573,7 +1575,7 @@ function App() {
 /* ---------------------------------------------------------------------
    DISPATCH VIEW
 --------------------------------------------------------------------- */
-function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract }) {
+function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, clockIn, clockOut, addAttendanceRecord }) {
   const [tab, setTab] = useState("board");
   const [showNewJob, setShowNewJob] = useState(false);
   const [search, setSearch] = useState("");
@@ -1754,7 +1756,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
       {tab === "staff" && <StaffPanel workers={workers} categories={categories} vehicles={vehicles} jobOrders={jobOrders} onUpdateWorker={onUpdateWorker} onUpdateVehicle={onUpdateVehicle} />}
       {tab === "shifts" && (
         <AttendancePanel workers={workers} attendance={attendance} entries={entries} categories={categories} jobOrders={jobOrders}
-          onClockIn={clockIn} onClockOut={clockOut} onAddAttendanceRecord={addAttendanceRecord} onDeleteEntry={deleteAttendanceEntry} />
+          onClockIn={clockIn} onClockOut={clockOut} onAddAttendanceRecord={addAttendanceRecord} onDeleteEntry={onDeleteAttendanceEntry} />
       )}
       {tab === "log" && (
         <div>
@@ -2363,7 +2365,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
             <Field label="One-Way Kms">
               <input type="number" min="0" step="0.1" className={inputCls}
                 style={inputStyle}
-                value={form.avgOneWayKm} onChange={(e) => setAvgOneWayKm(e.target.value)} placeholder="e.g. 18" />
+                value={form.avgOneWayKm} onChange={(e) => set("avgOneWayKm", e.target.value)} placeholder="e.g. 18" />
             </Field>
             <Field label="Trips">
               <input type="number" min="1" step="1" className={inputCls}

@@ -1994,6 +1994,8 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
   const [trips, setTrips] = useState(job.trips || "1");
   const [teamLeadId, setTeamLeadId] = useState(job.teamLeadId || "");
   const [estimatedDays, setEstimatedDays] = useState(job.estimatedDays || "1");
+  const [assignedDate, setAssignedDate] = useState(job.assignedDate || todayISO());
+  const [assignedTime, setAssignedTime] = useState(job.assignedTime || nowHHMM());
   const toggle = (id) => setSelected((s) => {
     const next = s.includes(id) ? s.filter((x) => x !== id) : [...s, id];
     if (teamLeadId === id && !next.includes(id)) setTeamLeadId("");
@@ -2135,13 +2137,23 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
             </Field>
           </div>
 
+          <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 mt-2" style={{ color: COLORS.steelLight }}>Assignment Settings</div>
+          <div className="grid grid-cols-2 gap-x-3">
+            <Field label="Assignment Date">
+              <input type="date" className={inputCls} style={inputStyle} value={assignedDate} onChange={(e) => setAssignedDate(e.target.value)} />
+            </Field>
+            <Field label="Assignment Time">
+              <input type="time" className={inputCls} style={inputStyle} value={assignedTime} onChange={(e) => setAssignedTime(e.target.value)} />
+            </Field>
+          </div>
+
           <div className="flex gap-2 mt-1">
             <button onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
             <button onClick={() => onSave({
               clientName, projectNo, quotationRef, area, emirates, scope,
               contractType, amcRefNo: (contractType === "amc" || contractType === "non_amc_with_amc_ref") ? amcRefNo.trim() : "",
               amc: contractType === "amc",
-              workerIds: selected, vehicleId, avgOneWayKm, trips, budgetAmount, marginPercent, teamLeadId, estimatedDays, assignedDate: todayISO(),
+              workerIds: selected, vehicleId, avgOneWayKm, trips, budgetAmount, marginPercent, teamLeadId, estimatedDays, assignedDate, assignedTime,
             })}
               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide cursor-pointer" style={{ background: COLORS.safety, color: COLORS.steelDark }}>
               SAVE
@@ -2243,6 +2255,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
     jobOrderNo: String(nextNo), projectNo: "", clientName: "", quotationRef: "",
     area: "", emirates: "Dubai", scope: "", priority: "Medium", contractType: "non_amc", amcRefNo: "", amc: false,
     workerIds: [], vehicleId: "", avgOneWayKm: "", trips: "1", estimatedDays: "1", budgetAmount: "", marginPercent: "", teamLeadId: "",
+    assignedDate: todayISO(), assignedTime: nowHHMM(),
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const toggleWorker = (id) => setForm((f) => {
@@ -2404,6 +2417,16 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
             ) : null;
           })()}
 
+          <div className="text-[10px] font-semibold uppercase tracking-wide mb-1 mt-2" style={{ color: COLORS.steelLight }}>Assignment Settings</div>
+          <div className="grid grid-cols-2 gap-x-3 mb-4">
+            <Field label="Assignment Date">
+              <input type="date" className={inputCls} style={inputStyle} value={form.assignedDate} onChange={(e) => set("assignedDate", e.target.value)} />
+            </Field>
+            <Field label="Assignment Time">
+              <input type="time" className={inputCls} style={inputStyle} value={form.assignedTime} onChange={(e) => set("assignedTime", e.target.value)} />
+            </Field>
+          </div>
+
           <div className="flex gap-2 mt-4">
             <button type="button" onClick={onClose} className="flex-1 py-2 rounded-md text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
             <button type="button" disabled={!canSubmit}
@@ -2411,7 +2434,7 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
                 id: genId("j"), ...form,
                 amc: form.contractType === "amc",
                 amcRefNo: (form.contractType === "amc" || form.contractType === "non_amc_with_amc_ref") ? form.amcRefNo.trim() : "",
-                status: form.workerIds.length > 0 ? "Assigned" : "Pending Allocation", createdAt: Date.now(), createdDate: todayISO(), assignedDate: todayISO(),
+                status: form.workerIds.length > 0 ? "Assigned" : "Pending Allocation", createdAt: Date.now(), createdDate: todayISO(),
                 invoiceStatus: "Not Invoiced", invoiceDate: "", invoiceNumber: "", invoiceAmount: "",
               })}
               className="flex-1 py-2 rounded-md text-sm font-bold disp tracking-wide"
@@ -4152,6 +4175,23 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
         if (statusFilter === "on_shift" && status !== "On Shift") return;
         if (statusFilter === "leave" && status !== "Leave" && status !== "Leave (Approved)") return;
 
+        const totalProjectTime = (entries || []).filter((e) => e.workerId === w.id && e.date === date).reduce((sum, e) => sum + (e.hours || 0), 0);
+        const idleTime = Math.max(0, hours - totalProjectTime);
+        const diff10 = hours - 10;
+        let diffLabel = "—";
+        let diffColor = COLORS.steel;
+        if (hours > 0) {
+          if (diff10 > 0) {
+            diffLabel = `+${diff10.toFixed(2)}h (Over)`;
+            diffColor = COLORS.go;
+          } else if (diff10 < 0) {
+            diffLabel = `${diff10.toFixed(2)}h (Under)`;
+            diffColor = COLORS.urgent;
+          } else {
+            diffLabel = `0.00h`;
+          }
+        }
+
         rows.push({
           date,
           workerId: w.id,
@@ -4160,6 +4200,10 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
           loginTime,
           logoutTime,
           hours,
+          totalProjectTime,
+          idleTime,
+          diffLabel,
+          diffColor,
           status,
           attId,
           hasLogin: !!(att || jobLog),
@@ -4186,6 +4230,9 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
       "Login Time": m.loginTime,
       "Logout Time": m.logoutTime,
       "Working Hours": Number(m.hours.toFixed(2)),
+      "Project Hours": Number(m.totalProjectTime.toFixed(2)),
+      "Idle Hours": Number(m.idleTime.toFixed(2)),
+      "Under/Over (10h)": m.diffLabel,
       "Attendance Status": m.status,
       "Assigned Service Request": m.assignedJob ? `#${m.assignedJob.jobOrderNo} - ${m.assignedJob.clientName}` : "None",
       "SR Status": m.assignedJob ? m.assignedJob.status : "—",
@@ -4339,7 +4386,10 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
                 <th className="text-left px-3 py-2.5 font-semibold">CATEGORY</th>
                 <th className="text-left px-3 py-2.5 font-semibold">LOGIN TIME</th>
                 <th className="text-left px-3 py-2.5 font-semibold">LOGOUT TIME</th>
-                <th className="text-left px-3 py-2.5 font-semibold">HOURS</th>
+                <th className="text-left px-3 py-2.5 font-semibold">TOTAL HRS</th>
+                <th className="text-left px-3 py-2.5 font-semibold">PROJECT HRS</th>
+                <th className="text-left px-3 py-2.5 font-semibold">IDLE HRS</th>
+                <th className="text-left px-3 py-2.5 font-semibold">U/O (10H)</th>
                 <th className="text-left px-3 py-2.5 font-semibold">ATTENDANCE STATUS</th>
                 <th className="text-left px-3 py-2.5 font-semibold">ASSIGNED SERVICE REQUEST / WORK STATUS</th>
                 <th className="text-right px-3 py-2.5 font-semibold">ACTION</th>
@@ -4348,7 +4398,7 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
             <tbody>
               {matrix.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center py-8" style={{ color: "#8A8F84" }}>
+                  <td colSpan={12} className="text-center py-8" style={{ color: "#8A8F84" }}>
                     No attendance records match the selected person and date range.
                   </td>
                 </tr>
@@ -4362,6 +4412,15 @@ function AttendancePanel({ workers, attendance, entries, categories, jobOrders, 
                   <td className="px-3 py-2.5 mono font-semibold">{m.logoutTime}</td>
                   <td className="px-3 py-2.5 mono font-bold text-sm" style={{ color: m.hours > 0 ? COLORS.steel : "#8A8F84" }}>
                     {m.hours > 0 ? `${m.hours.toFixed(2)} h` : "0.0 h"}
+                  </td>
+                  <td className="px-3 py-2.5 mono font-bold text-sm" style={{ color: m.totalProjectTime > 0 ? COLORS.steel : "#8A8F84" }}>
+                    {m.totalProjectTime > 0 ? `${m.totalProjectTime.toFixed(2)} h` : "0.0 h"}
+                  </td>
+                  <td className="px-3 py-2.5 mono font-bold text-sm" style={{ color: m.idleTime > 0 ? COLORS.urgent : "#8A8F84" }}>
+                    {m.idleTime > 0 ? `${m.idleTime.toFixed(2)} h` : "0.0 h"}
+                  </td>
+                  <td className="px-3 py-2.5 mono font-bold text-[11px]" style={{ color: m.diffColor }}>
+                    {m.diffLabel}
                   </td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
                     {m.status === "On Shift" && (

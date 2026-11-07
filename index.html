@@ -496,6 +496,58 @@ const SEED_AMC_SERVICES = [
   }
 ];
 
+function createAmcCycleServices(contract) {
+  const count = Math.max(1, parseInt(contract.servicesPerYear, 10) || 4);
+  const intervalMonths = Math.max(1, Math.round(12 / count));
+  const startStr = contract.startDate || todayISO();
+  const startD = new Date(startStr);
+  const baseDay = isNaN(startD.getTime()) ? 15 : (startD.getDate() || 15);
+
+  const generated = [];
+  const hasOutdoor = Number(contract.servicesPerOutdoorUnit || 0) > 0;
+  const inUnits = Number(contract.servicesPerIndoorUnit || 4);
+  const outUnits = Number(contract.servicesPerOutdoorUnit || 2);
+  const area = contract.area || "Main Facility";
+  const emirates = contract.emirates || "Dubai";
+
+  for (let i = 0; i < count; i++) {
+    const d = new Date(startD);
+    d.setMonth(d.getMonth() + i * intervalMonths);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    d.setDate(Math.min(baseDay, daysInMonth));
+
+    const dateISO = isNaN(d.getTime()) ? todayISO() : d.toISOString().slice(0, 10);
+    const targetMonth = isNaN(d.getTime()) ? "Scheduled" : d.toLocaleString("en-US", { month: "short", year: "numeric" });
+    const isBoth = hasOutdoor ? (i % 2 === 0) : false;
+    const serviceType = hasOutdoor ? (isBoth ? "Both" : "Indoor") : "Indoor";
+
+    generated.push({
+      id: `amc_srv_${Date.now()}_${i}_${Math.floor(Math.random() * 1000)}`,
+      amcId: contract.id,
+      amcRefNo: contract.refNo,
+      clientName: contract.clientName,
+      scheduledDate: dateISO,
+      targetMonth,
+      serviceType,
+      indoorUnits: inUnits,
+      outdoorUnits: serviceType === "Both" ? outUnits : 0,
+      area,
+      emirates,
+      scope: serviceType === "Both"
+        ? "Comprehensive periodic service: filter cleaning, cooling coil washing, drain tray flushing, and outdoor condensing unit inspection."
+        : "Indoor FCU & AHU cooling coil air filter water service, blower wheel dust cleaning, and drain tray sanitization.",
+      priority: i === 0 ? "High" : "Medium",
+      status: "Scheduled",
+      dispatchedJobId: null,
+      dispatchedJobOrderNo: null,
+      createdAt: Date.now() + i * 1000,
+    });
+  }
+  return generated;
+}
+
 const SEED_JOBS = [
   {
     id: "j2001", jobOrderNo: "2001", projectNo: "PRJ-9041", clientName: "Nesto Hypermarket", quotationRef: "QT-2026-104",
@@ -762,9 +814,21 @@ function downloadBlob(blob, filename) {
 
 // Time Log tab — mirrors "labor cost datasheet": one row per worker per entry,
 // plus the rate lookup table in the trailing columns, same layout as the source file.
-function exportLaborCostReport(workers, jobOrders, entries) {
+function exportLaborCostReport(workers = [], jobOrders = [], entries = [], dateFrom = "", dateTo = "", selectedJobId = "all") {
+  const matchJob = selectedJobId && selectedJobId !== "all"
+    ? (jobOrders || []).find((j) => j.id === selectedJobId || String(j.jobOrderNo) === String(selectedJobId))
+    : null;
+  const matchJobOrderNo = matchJob?.jobOrderNo ? String(matchJob.jobOrderNo).trim() : (selectedJobId !== "all" ? String(selectedJobId).trim() : null);
+
+  let filtered = [...entries];
+  if (dateFrom) filtered = filtered.filter((e) => e.date >= dateFrom);
+  if (dateTo) filtered = filtered.filter((e) => e.date <= dateTo);
+  if (selectedJobId && selectedJobId !== "all") {
+    filtered = filtered.filter((e) => e.jobId === selectedJobId || (matchJob && e.jobId === matchJob.id) || (matchJobOrderNo && (e.jobOrderNo === matchJobOrderNo || e.job?.jobOrderNo === matchJobOrderNo)));
+  }
+
   const wb = XLSX.utils.book_new();
-  const dataRows = [...entries].sort((a, b) => a.createdAt - b.createdAt).map((e, i) => {
+  const dataRows = filtered.sort((a, b) => a.createdAt - b.createdAt).map((e, i) => {
     const job = jobOrders.find((j) => j.id === e.jobId) || {};
     return {
       "Sl No.": i + 1,
@@ -798,7 +862,9 @@ function exportLaborCostReport(workers, jobOrders, entries) {
     XLSX.utils.sheet_add_aoa(ws1, [[w.name, w.category, w.rate]], { origin: `W${i + 2}` });
   });
   XLSX.utils.book_append_sheet(wb, ws1, "labor cost datasheet");
-  downloadWorkbook(wb, `labor-cost-report-${todayISO()}.xlsx`);
+  const jobSuffix = matchJob ? `-Job-${matchJob.jobOrderNo || matchJob.id}` : (selectedJobId && selectedJobId !== "all" ? `-Job-${selectedJobId}` : "");
+  const dateSuffix = (dateFrom || dateTo) ? `-${dateFrom || "start"}-to-${dateTo || "end"}` : `-${todayISO()}`;
+  downloadWorkbook(wb, `labor-cost-report${jobSuffix}${dateSuffix}.xlsx`);
 }
 
 // Budget & Invoices tab — mirrors "Tracking": budget vs actual per job/quotation.
@@ -1345,11 +1411,33 @@ function formatReportAmount(amt) {
   return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildClientAttendanceRows({ workers = [], jobOrders = [], entries = [], attendance = {}, dateFrom = "", dateTo = "", selectedWorkerId = "all" }) {
+function buildClientAttendanceRows({
+  workers = [],
+  jobOrders = [],
+  entries = [],
+  attendance = {},
+  dateFrom = "",
+  dateTo = "",
+  selectedWorkerId = "all",
+  selectedJobId = "all",
+}) {
+  const matchJob = selectedJobId && selectedJobId !== "all"
+    ? (jobOrders || []).find((j) => j.id === selectedJobId || String(j.jobOrderNo) === String(selectedJobId))
+    : null;
+  const matchJobOrderNo = matchJob?.jobOrderNo ? String(matchJob.jobOrderNo).trim() : (selectedJobId !== "all" ? String(selectedJobId).trim() : null);
+
   const filteredEntries = (entries || []).filter((e) => {
     if (dateFrom && e.date < dateFrom) return false;
     if (dateTo && e.date > dateTo) return false;
     if (selectedWorkerId && selectedWorkerId !== "all" && e.workerId !== selectedWorkerId) return false;
+    if (selectedJobId && selectedJobId !== "all") {
+      const matchById = e.jobId && (e.jobId === selectedJobId || (matchJob && e.jobId === matchJob.id));
+      const matchByJobNo = matchJobOrderNo && (
+        (e.jobOrderNo && String(e.jobOrderNo).trim() === matchJobOrderNo) ||
+        (e.job?.jobOrderNo && String(e.job.jobOrderNo).trim() === matchJobOrderNo)
+      );
+      if (!matchById && !matchByJobNo) return false;
+    }
     return true;
   });
 
@@ -1378,7 +1466,7 @@ function buildClientAttendanceRows({ workers = [], jobOrders = [], entries = [],
   let sl = 1;
 
   visits.forEach((v) => {
-    const job = (jobOrders || []).find((j) => j.id === v.jobId) || {};
+    const job = (jobOrders || []).find((j) => j.id === v.jobId || (matchJobOrderNo && String(j.jobOrderNo).trim() === matchJobOrderNo)) || {};
     const workerNames = Array.from(new Set(v.entries.map((e) => e.workerName || workers.find((w) => w.id === e.workerId)?.name).filter(Boolean)));
     const attendedBy = workerNames.join(", ");
     
@@ -1428,44 +1516,47 @@ function buildClientAttendanceRows({ workers = [], jobOrders = [], entries = [],
     });
   });
 
-  (attendance?.entries || []).forEach((att) => {
-    const attDate = att.clockInDate;
-    if (dateFrom && attDate < dateFrom) return;
-    if (dateTo && attDate > dateTo) return;
-    if (selectedWorkerId && selectedWorkerId !== "all" && att.workerId !== selectedWorkerId) return;
+  // Only include general staff shift check-ins if no specific job is selected
+  if (!selectedJobId || selectedJobId === "all") {
+    (attendance?.entries || []).forEach((att) => {
+      const attDate = att.clockInDate;
+      if (dateFrom && attDate < dateFrom) return;
+      if (dateTo && attDate > dateTo) return;
+      if (selectedWorkerId && selectedWorkerId !== "all" && att.workerId !== selectedWorkerId) return;
 
-    const alreadyLogged = visits.some((v) => v.date === attDate && v.entries.some((e) => e.workerId === att.workerId));
-    if (!alreadyLogged) {
-      rows.push({
-        "Sl No.": sl++,
-        "Date": formatReportDate(attDate),
-        "SR No.": "",
-        "Project #": "",
-        "Client Name": att.status === "open" ? "HQ / Shift Check-in" : "General Shift Attendance",
-        "Area": "",
-        "Emirates": "",
-        "Scope": att.status === "open" ? "Active Shift In Progress" : "General Workshop / Standby Attendance",
-        "Attended by": att.workerName || workers.find((w) => w.id === att.workerId)?.name || "Staff",
-        "Column1": "",
-        "Time In ": formatTime12h(att.clockInTime),
-        "Time Out": formatTime12h(att.clockOutTime),
-        "Working Hours": formatWorkingHours(att.clockInTime, att.clockOutTime, att.hours),
-        "AMC / Non AMC": "",
-        "Invoice Status": "",
-        "Invoice Date": "",
-        "Invoice Number": "",
-        "Amount": "",
-        "Remarks": att.status === "open" ? "Shift In Progress" : "",
-        _isShift: true,
-        _attId: att.id,
-      });
-    }
-  });
+      const alreadyLogged = visits.some((v) => v.date === attDate && v.entries.some((e) => e.workerId === att.workerId));
+      if (!alreadyLogged) {
+        rows.push({
+          "Sl No.": sl++,
+          "Date": formatReportDate(attDate),
+          "SR No.": "",
+          "Project #": "",
+          "Client Name": att.status === "open" ? "HQ / Shift Check-in" : "General Shift Attendance",
+          "Area": "",
+          "Emirates": "",
+          "Scope": att.status === "open" ? "Active Shift In Progress" : "General Workshop / Standby Attendance",
+          "Attended by": att.workerName || workers.find((w) => w.id === att.workerId)?.name || "Staff",
+          "Column1": "",
+          "Time In ": formatTime12h(att.clockInTime),
+          "Time Out": formatTime12h(att.clockOutTime),
+          "Working Hours": formatWorkingHours(att.clockInTime, att.clockOutTime, att.hours),
+          "AMC / Non AMC": "",
+          "Invoice Status": "",
+          "Invoice Date": "",
+          "Invoice Number": "",
+          "Amount": "",
+          "Remarks": att.status === "open" ? "Shift In Progress" : "",
+          _isShift: true,
+          _attId: att.id,
+        });
+      }
+    });
+  }
 
   return rows;
 }
 
-async function exportAttendanceReport(workers = [], jobOrders = [], entries = [], attendance = {}, dateFrom = "", dateTo = "", selectedWorkerId = "all") {
+async function exportAttendanceReport(workers = [], jobOrders = [], entries = [], attendance = {}, dateFrom = "", dateTo = "", selectedWorkerId = "all", selectedJobId = "all") {
   let exportRows = buildClientAttendanceRows({
     workers,
     jobOrders,
@@ -1474,10 +1565,26 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
     dateFrom,
     dateTo,
     selectedWorkerId,
+    selectedJobId,
   });
 
+  const matchJob = selectedJobId && selectedJobId !== "all"
+    ? (jobOrders || []).find((j) => j.id === selectedJobId || String(j.jobOrderNo) === String(selectedJobId))
+    : null;
+  const matchJobOrderNo = matchJob?.jobOrderNo ? String(matchJob.jobOrderNo).trim() : (selectedJobId !== "all" ? String(selectedJobId).trim() : null);
+
   if (exportRows.length === 0 && (!entries || entries.length === 0)) {
-    exportRows = CLIENT_SAMPLE_ATTENDANCE.map((r, i) => ({
+    let sampleRows = CLIENT_SAMPLE_ATTENDANCE;
+    if (dateFrom) sampleRows = sampleRows.filter((r) => r.date >= dateFrom);
+    if (dateTo) sampleRows = sampleRows.filter((r) => r.date <= dateTo);
+    if (selectedJobId && selectedJobId !== "all") {
+      sampleRows = sampleRows.filter((r) => {
+        if (matchJobOrderNo && r.srNo && String(r.srNo).trim() === matchJobOrderNo) return true;
+        if (matchJob?.clientName && r.clientName && r.clientName.toLowerCase().includes(matchJob.clientName.toLowerCase())) return true;
+        return false;
+      });
+    }
+    exportRows = sampleRows.map((r, i) => ({
       "Sl No.": i + 1,
       "Date": formatReportDate(r.date),
       "SR No.": r.srNo || "",
@@ -1516,7 +1623,16 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
   const colWidths = [8, 14, 10, 14, 34, 14, 14, 60, 30, 12, 13, 13, 15, 16, 16, 14, 18, 14, 22];
   const dFrom = dateFrom || "all";
   const dTo = dateTo || "all";
-  const filename = `Daily-Job-Attendance-Register-${dFrom}-to-${dTo}.xlsx`;
+  const jobSuffix = matchJob ? `-Job-${matchJob.jobOrderNo || matchJob.id}` : (selectedJobId && selectedJobId !== "all" ? `-Job-${selectedJobId}` : "");
+  const filename = `Daily-Job-Attendance-Register${jobSuffix}-${dFrom}-to-${dTo}.xlsx`;
+
+  let reportTitle = "Daily Job Attendance Register";
+  if (matchJob) {
+    reportTitle += ` — Job #${matchJob.jobOrderNo || matchJob.id}${matchJob.clientName ? ` (${matchJob.clientName})` : ""}`;
+  }
+  if (dateFrom || dateTo) {
+    reportTitle += ` [${dFrom} to ${dTo}]`;
+  }
 
   // 1. Preferred modern path: ExcelJS (renders bold title, styled colored headers, exact borders, AutoFilter, no empty space on top)
   if (typeof ExcelJS !== "undefined") {
@@ -1534,7 +1650,7 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
       const row1 = ws.getRow(1);
       row1.height = 24;
       const titleCell = row1.getCell(8); // Column H
-      titleCell.value = "Daily Job Attendance Register";
+      titleCell.value = reportTitle;
       titleCell.font = { name: "Calibri", size: 12, bold: true, color: { argb: "FF000000" } };
       titleCell.alignment = { vertical: "middle", horizontal: "left" };
 
@@ -1602,7 +1718,12 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
           cell.alignment = { vertical: "middle", horizontal: "center" };
         });
         workers.forEach((w) => {
-          const wEntries = (entries || []).filter((e) => e.workerId === w.id);
+          let wEntries = (entries || []).filter((e) => e.workerId === w.id);
+          if (dateFrom) wEntries = wEntries.filter((e) => e.date >= dateFrom);
+          if (dateTo) wEntries = wEntries.filter((e) => e.date <= dateTo);
+          if (selectedJobId && selectedJobId !== "all") {
+            wEntries = wEntries.filter((e) => e.jobId === selectedJobId || (matchJob && e.jobId === matchJob.id) || (matchJobOrderNo && (e.jobOrderNo === matchJobOrderNo || e.job?.jobOrderNo === matchJobOrderNo)));
+          }
           const totalHrs = wEntries.reduce((s, e) => s + (e.hours || 0), 0);
           ws2.addRow({
             name: w.name,
@@ -1625,7 +1746,7 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
   // 2. Fallback: SheetJS (no empty rows 1-2 on top, title at Row 1, headers at Row 2)
   const wb = XLSX.utils.book_new();
   const aoa = [
-    ["", "", "", "", "", "", "", "Daily Job Attendance Register"],
+    ["", "", "", "", "", "", "", reportTitle],
     ATTENDANCE_EXPORT_HEADERS,
   ];
   cleanExportRows.forEach((r) => {
@@ -1645,7 +1766,12 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
 
   if (workers && workers.length > 0) {
     const summaryRows = workers.map((w) => {
-      const wEntries = (entries || []).filter((e) => e.workerId === w.id);
+      let wEntries = (entries || []).filter((e) => e.workerId === w.id);
+      if (dateFrom) wEntries = wEntries.filter((e) => e.date >= dateFrom);
+      if (dateTo) wEntries = wEntries.filter((e) => e.date <= dateTo);
+      if (selectedJobId && selectedJobId !== "all") {
+        wEntries = wEntries.filter((e) => e.jobId === selectedJobId || (matchJob && e.jobId === matchJob.id) || (matchJobOrderNo && (e.jobOrderNo === matchJobOrderNo || e.job?.jobOrderNo === matchJobOrderNo)));
+      }
       const totalHrs = wEntries.reduce((s, e) => s + (e.hours || 0), 0);
       return {
         "Worker Name": w.name,
@@ -2621,13 +2747,66 @@ function App() {
             workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts} amcServices={amcServices} entries={entries} cash={cash}
             otherExpenses={otherExpenses} attendance={attendance}
             onAddAmcService={onAddAmcService} onUpdateAmcService={onUpdateAmcService} onDeleteAmcService={onDeleteAmcService} onMoveAmcServiceToBoard={onMoveAmcServiceToBoard}
-            onAddContract={(c) => {
-              const newList = [...amcContracts, c];
-              setAmcContracts(newList); storageSet("amc-contracts", newList, true);
+            onAddContract={async (c) => {
+              const contractId = c.id || genId("amc");
+              const fullContract = { ...c, id: contractId };
+              const newList = [...amcContracts, fullContract];
+              setAmcContracts(newList);
+              await storageSet("amc-contracts", newList, true);
+
+              if (c.autoGenerateServices !== false) {
+                const newServices = createAmcCycleServices(fullContract);
+                const nextServices = [...amcServices, ...newServices];
+                setAmcServices(nextServices);
+                await storageSet("amc-services", nextServices, true);
+                showToast(`AMC Contract ${c.refNo} created with ${newServices.length} scheduled visits on AMC Board!`);
+              } else {
+                showToast(`AMC Contract ${c.refNo} created`);
+              }
             }}
-            onUpdateContract={(id, patch) => {
+            onUpdateContract={async (id, patch) => {
+              const prev = amcContracts.find((x) => x.id === id);
               const newList = amcContracts.map((x) => x.id === id ? { ...x, ...patch } : x);
-              setAmcContracts(newList); storageSet("amc-contracts", newList, true);
+              setAmcContracts(newList);
+              await storageSet("amc-contracts", newList, true);
+
+              if (patch.clientName || patch.refNo) {
+                const nextServices = amcServices.map((s) => {
+                  if (s.amcId === id || (prev && s.amcRefNo === prev.refNo)) {
+                    return {
+                      ...s,
+                      amcRefNo: patch.refNo || s.amcRefNo,
+                      clientName: patch.clientName || s.clientName,
+                    };
+                  }
+                  return s;
+                });
+                setAmcServices(nextServices);
+                await storageSet("amc-services", nextServices, true);
+              }
+              showToast("AMC Contract updated");
+            }}
+            onDeleteContract={async (id) => {
+              const target = amcContracts.find((x) => x.id === id);
+              const newList = amcContracts.filter((x) => x.id !== id);
+              setAmcContracts(newList);
+              await storageSet("amc-contracts", newList, true);
+
+              const nextServices = amcServices.filter((s) => s.amcId !== id && (!target || s.amcRefNo !== target.refNo));
+              if (nextServices.length !== amcServices.length) {
+                setAmcServices(nextServices);
+                await storageSet("amc-services", nextServices, true);
+              }
+              showToast(`AMC Contract ${target ? target.refNo : ""} deleted`);
+            }}
+            onGenerateServicesForContract={async (contractId) => {
+              const contract = amcContracts.find(c => c.id === contractId);
+              if (!contract) return;
+              const newServices = createAmcCycleServices(contract);
+              const nextServices = [...amcServices, ...newServices];
+              setAmcServices(nextServices);
+              await storageSet("amc-services", nextServices, true);
+              showToast(`Generated ${newServices.length} scheduled visits for ${contract.clientName} on AMC Board!`);
             }}
             onAddJob={addJobOrder} onUpdateJob={updateJobOrder} onWrapUpJob={(job, action) => setWrapUpTarget({ job, action })} onOpenDemo={() => setShowAppDemo(true)}
             onAddWorker={addWorker} onAddVehicle={addVehicle} onUpdateWorker={updateWorker}
@@ -2697,7 +2876,7 @@ function App() {
 /* ---------------------------------------------------------------------
    DISPATCH VIEW
 --------------------------------------------------------------------- */
-function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, amcServices = [], entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, onAddAmcService, onUpdateAmcService, onDeleteAmcService, onMoveAmcServiceToBoard, clockIn, clockOut, addAttendanceRecord, onLoadSampleData, onSaveServiceRecord, onDeleteServiceRecord }) {
+function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, amcServices = [], entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, onDeleteContract, onGenerateServicesForContract, onAddAmcService, onUpdateAmcService, onDeleteAmcService, onMoveAmcServiceToBoard, clockIn, clockOut, addAttendanceRecord, onLoadSampleData, onSaveServiceRecord, onDeleteServiceRecord }) {
   const [tab, setTab] = useState("board");
   const [showNewJob, setShowNewJob] = useState(false);
   const [search, setSearch] = useState("");
@@ -2871,6 +3050,8 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           vehicles={vehicles}
           onAddContract={onAddContract}
           onUpdateContract={onUpdateContract}
+          onDeleteContract={onDeleteContract}
+          onGenerateServicesForContract={onGenerateServicesForContract}
           onAddAmcService={onAddAmcService}
           onUpdateAmcService={onUpdateAmcService}
           onDeleteAmcService={onDeleteAmcService}
@@ -2894,7 +3075,14 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
         />
       )}
       {tab === "amc" && (
-        <AmcMasterPanel amcContracts={amcContracts} jobOrders={jobOrders} onAddContract={onAddContract} onUpdateContract={onUpdateContract} />
+        <AmcMasterPanel
+          amcContracts={amcContracts}
+          jobOrders={jobOrders}
+          amcServices={amcServices}
+          onAddContract={onAddContract}
+          onUpdateContract={onUpdateContract}
+          onDeleteContract={onDeleteContract}
+        />
       )}
       {tab === "fleet" && (
         <FleetPanel
@@ -2915,27 +3103,15 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           onImportAttendanceRows={onImportAttendanceRows} />
       )}
       {tab === "log" && (
-        <div>
-          <div className="flex flex-wrap gap-2 justify-end mb-3">
-            <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportFile} className="hidden" />
-            <button onClick={() => importInputRef.current?.click()} disabled={importing}
-              className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide cursor-pointer"
-              style={{ background: COLORS.paperDark, color: COLORS.steel, opacity: importing ? 0.6 : 1 }}>
-              <FileText size={14} /> {importing ? "IMPORTING…" : "IMPORT ATTENDANCE (.XLSX)"}
-            </button>
-            <button onClick={() => exportAttendanceReport(workers, jobOrders, entries, attendance)}
-              className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide cursor-pointer"
-              style={{ background: COLORS.safety, color: COLORS.steelDark }}>
-              <Receipt size={14} /> DOWNLOAD ATTENDANCE REPORT (.XLSX)
-            </button>
-            <button onClick={() => exportLaborCostReport(workers, jobOrders, entries)}
-              className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-bold tracking-wide cursor-pointer"
-              style={{ background: COLORS.steel, color: "#fff" }}>
-              <Receipt size={14} /> DOWNLOAD LABOR COST REPORT
-            </button>
-          </div>
-          <TimeLogTable entries={entries} jobOrders={jobOrders} />
-        </div>
+        <TimeLogTable
+          entries={entries}
+          jobOrders={jobOrders}
+          workers={workers}
+          attendance={attendance}
+          importInputRef={importInputRef}
+          importing={importing}
+          handleImportFile={handleImportFile}
+        />
       )}
       {tab === "cash" && (
         <PettyCashPanel workers={workers} categories={categories} jobOrders={jobOrders} cash={cash}
@@ -3615,48 +3791,466 @@ function NewJobModal({ workers, vehicles, jobOrders, amcContracts, onClose, onSu
   );
 }
 
-function TimeLogTable({ entries, jobOrders }) {
+function TimeLogTable({
+  entries = [],
+  jobOrders = [],
+  workers = [],
+  attendance = {},
+  importInputRef,
+  importing = false,
+  handleImportFile,
+}) {
   const [q, setQ] = useState("");
-  const rows = useMemo(() => {
-    return entries
-      .map((e) => ({ ...e, job: jobOrders.find((j) => j.id === e.jobId) }))
-      .filter((e) => JSON.stringify(e).toLowerCase().includes(q.toLowerCase()))
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }, [entries, jobOrders, q]);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState("all");
+
+  const handlePreset = (preset) => {
+    const today = new Date();
+    if (preset === "all") {
+      setDateFrom("");
+      setDateTo("");
+    } else if (preset === "today") {
+      const iso = todayISO();
+      setDateFrom(iso);
+      setDateTo(iso);
+    } else if (preset === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      const iso = toLocalDateStr(y);
+      setDateFrom(iso);
+      setDateTo(iso);
+    } else if (preset === "7days") {
+      const past = new Date(today);
+      past.setDate(past.getDate() - 6);
+      setDateFrom(toLocalDateStr(past));
+      setDateTo(todayISO());
+    } else if (preset === "month") {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      setDateFrom(toLocalDateStr(first));
+      setDateTo(todayISO());
+    }
+  };
+
+  const isPresetActive = (preset) => {
+    const today = todayISO();
+    if (preset === "all") return !dateFrom && !dateTo;
+    if (preset === "today") return dateFrom === today && dateTo === today;
+    if (preset === "yesterday") {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const yIso = toLocalDateStr(y);
+      return dateFrom === yIso && dateTo === yIso;
+    }
+    if (preset === "7days") {
+      const past = new Date();
+      past.setDate(past.getDate() - 6);
+      return dateFrom === toLocalDateStr(past) && dateTo === today;
+    }
+    if (preset === "month") {
+      const now = new Date();
+      const first = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      return dateFrom === first && dateTo === today;
+    }
+    return false;
+  };
+
+  const sortedJobs = useMemo(() => {
+    return [...jobOrders].sort((a, b) => {
+      const noA = a.jobOrderNo || a.id || "";
+      const noB = b.jobOrderNo || b.id || "";
+      return String(noB).localeCompare(String(noA), undefined, { numeric: true });
+    });
+  }, [jobOrders]);
+
+  const activeJob = useMemo(() => {
+    if (!selectedJobId || selectedJobId === "all") return null;
+    return jobOrders.find((j) => j.id === selectedJobId || String(j.jobOrderNo) === String(selectedJobId));
+  }, [selectedJobId, jobOrders]);
+
+  const filteredRows = useMemo(() => {
+    const matchJobOrderNo = activeJob?.jobOrderNo ? String(activeJob.jobOrderNo).trim() : (selectedJobId !== "all" ? String(selectedJobId).trim() : null);
+
+    return (entries || [])
+      .map((e) => {
+        const job = jobOrders.find((j) => j.id === e.jobId) || {};
+        return { ...e, job };
+      })
+      .filter((e) => {
+        // Date filter
+        if (dateFrom && e.date < dateFrom) return false;
+        if (dateTo && e.date > dateTo) return false;
+
+        // Job filter
+        if (selectedJobId && selectedJobId !== "all") {
+          const matchById = e.jobId && (e.jobId === selectedJobId || (activeJob && e.jobId === activeJob.id));
+          const matchByJobNo = matchJobOrderNo && e.job?.jobOrderNo && String(e.job.jobOrderNo).trim() === matchJobOrderNo;
+          const matchByEntryNo = matchJobOrderNo && e.jobOrderNo && String(e.jobOrderNo).trim() === matchJobOrderNo;
+          if (!matchById && !matchByJobNo && !matchByEntryNo) return false;
+        }
+
+        // Search text
+        if (q.trim()) {
+          const s = q.trim().toLowerCase();
+          const haystack = [
+            e.date,
+            e.job?.jobOrderNo,
+            e.jobOrderNo,
+            e.job?.clientName,
+            e.job?.projectNo,
+            e.job?.quotationRef,
+            e.job?.area,
+            e.job?.emirates,
+            e.workerName,
+            e.category,
+            e.note,
+            e.scope,
+            e.job?.scope,
+            e.job?.amc ? "AMC" : "Non-AMC",
+            e.timeIn,
+            e.timeOut,
+          ].filter(Boolean).join(" ").toLowerCase();
+          if (!haystack.includes(s)) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.date !== b.date) return (b.date || "").localeCompare(a.date || "");
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+  }, [entries, jobOrders, dateFrom, dateTo, selectedJobId, activeJob, q]);
+
+  const totalFilteredHours = useMemo(() => {
+    return filteredRows.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+  }, [filteredRows]);
+
+  const totalFilteredCost = useMemo(() => {
+    return filteredRows.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+  }, [filteredRows]);
+
+  const uniqueWorkersCount = useMemo(() => {
+    return new Set(filteredRows.map((r) => r.workerId || r.workerName).filter(Boolean)).size;
+  }, [filteredRows]);
+
+  const uniqueJobsCount = useMemo(() => {
+    return new Set(filteredRows.map((r) => r.jobId || r.job?.jobOrderNo).filter(Boolean)).size;
+  }, [filteredRows]);
+
+  const hasActiveFilter = Boolean(dateFrom || dateTo || (selectedJobId && selectedJobId !== "all") || q.trim());
+
+  const handleClearFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setSelectedJobId("all");
+    setQ("");
+  };
+
+  const handleExportAttendance = () => {
+    exportAttendanceReport(
+      workers,
+      jobOrders,
+      entries,
+      attendance,
+      dateFrom,
+      dateTo,
+      "all",
+      selectedJobId
+    );
+  };
+
+  const handleExportLaborCost = () => {
+    exportLaborCostReport(
+      workers,
+      jobOrders,
+      filteredRows,
+      dateFrom,
+      dateTo,
+      selectedJobId
+    );
+  };
 
   return (
     <div>
-      <div className="relative mb-3 w-64">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" color="#8A8F84" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search entries…" className={inputCls} style={{ ...inputStyle, paddingLeft: 28 }} />
+      {/* HEADER & ACTION BUTTONS */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
+        <div>
+          <div className="disp font-extrabold text-base tracking-wide flex items-center gap-2" style={{ color: COLORS.steel }}>
+            <Clock size={18} color={COLORS.steel} />
+            TIME LOG &amp; ATTENDANCE
+          </div>
+          <div className="text-xs" style={{ color: "#8A8F84" }}>
+            Filter attendance by date and job order before downloading report spreadsheets
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {importInputRef && handleImportFile && (
+            <>
+              <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportFile} className="hidden" />
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importing}
+                className="disp flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer transition shadow-xs hover:opacity-90"
+                style={{ background: COLORS.paperDark, color: COLORS.steel, opacity: importing ? 0.6 : 1, border: `1px solid ${COLORS.line}` }}
+              >
+                <FileText size={14} /> {importing ? "IMPORTING…" : "IMPORT ATTENDANCE (.XLSX)"}
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleExportAttendance}
+            className="disp flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer transition shadow hover:brightness-105 active:scale-[0.98]"
+            style={{ background: COLORS.safety, color: COLORS.steelDark }}
+            title="Download Daily Job Attendance Register filtered by date and job"
+          >
+            <Receipt size={14} /> DOWNLOAD ATTENDANCE REPORT (.XLSX)
+          </button>
+          <button
+            type="button"
+            onClick={handleExportLaborCost}
+            className="disp flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold tracking-wide cursor-pointer transition shadow hover:brightness-110 active:scale-[0.98]"
+            style={{ background: COLORS.steel, color: "#fff" }}
+            title="Download labor cost report filtered by date and job"
+          >
+            <FileText size={14} /> DOWNLOAD LABOR COST REPORT
+          </button>
+        </div>
       </div>
-      <div className="rounded-lg overflow-hidden" style={{ border: `1.5px solid ${COLORS.line}` }}>
+
+      {/* FILTER BAR */}
+      <div className="rounded-lg p-3 mb-3.5 shadow-xs" style={{ background: COLORS.paperDark, border: `1.5px solid ${COLORS.line}` }}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-1.5">
+            <Filter size={14} color={COLORS.steel} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: COLORS.steel }}>
+              Filter Attendance &amp; Time Log
+            </span>
+          </div>
+          {/* Quick Date Presets */}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: "#8A8F84" }}>
+              Quick Presets:
+            </span>
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "7days", label: "Last 7 Days" },
+              { id: "month", label: "This Month" },
+            ].map((p) => {
+              const active = isPresetActive(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handlePreset(p.id)}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded transition ${
+                    active ? "shadow-xs font-bold" : "hover:bg-white"
+                  }`}
+                  style={{
+                    background: active ? COLORS.steel : "#fff",
+                    color: active ? "#fff" : COLORS.steel,
+                    border: `1px solid ${active ? COLORS.steelDark : COLORS.line}`,
+                  }}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-end">
+          {/* Date From */}
+          <div className="md:col-span-3 sm:col-span-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLORS.steelLight }}>
+              Date From
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-full text-xs rounded px-2.5 py-1.5 bg-white font-medium shadow-inner"
+              style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+          </div>
+
+          {/* Date To */}
+          <div className="md:col-span-3 sm:col-span-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLORS.steelLight }}>
+              Date To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-full text-xs rounded px-2.5 py-1.5 bg-white font-medium shadow-inner"
+              style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
+            />
+          </div>
+
+          {/* Job Order Filter */}
+          <div className="md:col-span-3 sm:col-span-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLORS.steelLight }}>
+              Job Order / Client
+            </label>
+            <select
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+              className="w-full text-xs rounded px-2.5 py-1.5 bg-white font-medium truncate shadow-inner cursor-pointer"
+              style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
+            >
+              <option value="all">All Jobs &amp; Orders ({jobOrders.length})</option>
+              {sortedJobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  #{j.jobOrderNo || j.id} · {j.clientName || "Unnamed"} {j.contractType === "amc" || j.amc ? "[AMC]" : "[Non-AMC]"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Text Search */}
+          <div className="md:col-span-3 sm:col-span-1">
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLORS.steelLight }}>
+              Search Filter
+            </label>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" color="#8A8F84" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Worker, client, scope, note…"
+                className="w-full text-xs rounded pl-8 pr-2.5 py-1.5 bg-white font-medium shadow-inner"
+                style={{ border: `1.5px solid ${COLORS.line}`, color: COLORS.ink }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Summary & Reset Bar */}
+        {hasActiveFilter && (
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-2.5 pt-2 border-t" style={{ borderColor: COLORS.line }}>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-bold text-[11px] uppercase tracking-wide" style={{ color: COLORS.steel }}>
+                Active Filters:
+              </span>
+              {(dateFrom || dateTo) && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-800 border border-blue-200">
+                  <Calendar size={11} />
+                  {dateFrom || "Start"} → {dateTo || "End"}
+                </span>
+              )}
+              {selectedJobId !== "all" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-900 border border-amber-300">
+                  <Briefcase size={11} />
+                  Job #{activeJob?.jobOrderNo || selectedJobId}{activeJob?.clientName ? ` (${activeJob.clientName})` : ""}
+                </span>
+              )}
+              {q.trim() && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-800 border border-gray-300">
+                  <Search size={11} />
+                  "{q.trim()}"
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="text-[11px] font-bold text-red-600 hover:text-red-800 flex items-center gap-1 px-2 py-0.5 rounded hover:bg-red-50 transition"
+            >
+              <X size={12} /> Clear Filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* METRICS BAR */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <div className="p-2.5 rounded-lg bg-white shadow-xs border" style={{ borderColor: COLORS.line }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Filtered Entries</div>
+          <div className="disp text-lg font-bold" style={{ color: COLORS.steel }}>
+            {filteredRows.length} <span className="text-xs font-normal" style={{ color: "#8A8F84" }}>/ {entries.length}</span>
+          </div>
+        </div>
+        <div className="p-2.5 rounded-lg bg-white shadow-xs border" style={{ borderColor: COLORS.line }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Total Logged Hours</div>
+          <div className="disp text-lg font-bold" style={{ color: COLORS.steel }}>
+            {totalFilteredHours.toFixed(2)} <span className="text-xs font-normal" style={{ color: "#8A8F84" }}>hrs</span>
+          </div>
+        </div>
+        <div className="p-2.5 rounded-lg bg-white shadow-xs border" style={{ borderColor: COLORS.line }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Total Labor Cost</div>
+          <div className="disp text-lg font-bold" style={{ color: COLORS.steelDark }}>
+            {fmtMoney(totalFilteredCost)}
+          </div>
+        </div>
+        <div className="p-2.5 rounded-lg bg-white shadow-xs border" style={{ borderColor: COLORS.line }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Active Scope</div>
+          <div className="disp text-sm font-bold truncate mt-1" style={{ color: COLORS.steel }}>
+            {selectedJobId !== "all" ? `Job #${activeJob?.jobOrderNo || selectedJobId}` : `${uniqueJobsCount} Jobs · ${uniqueWorkersCount} Crew`}
+          </div>
+        </div>
+      </div>
+
+      {/* DATA TABLE */}
+      <div className="rounded-lg overflow-hidden shadow-xs" style={{ border: `1.5px solid ${COLORS.line}` }}>
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
               <tr style={{ background: COLORS.steelDark, color: "#fff" }} className="disp tracking-wide">
-                {["Date", "Job #", "Client", "Worker", "Cat", "In", "Out", "Hrs", "Days", "AMC", "Cost"].map((h) => (
+                {["Date", "Job #", "Client", "Worker", "Cat", "In", "Out", "Hrs", "Days", "AMC", "Cost", "Note / Scope"].map((h) => (
                   <th key={h} className="text-left px-3 py-2 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-8" style={{ color: "#8A8F84" }}>No entries logged yet.</td></tr>
+              {filteredRows.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="text-center py-10" style={{ color: "#8A8F84" }}>
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Clock size={28} className="opacity-40" />
+                      <div className="font-semibold text-sm">No time entries match the selected filters.</div>
+                      <div className="text-xs">Try adjusting the Date Range, Job Order, or Search query.</div>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          onClick={handleClearFilters}
+                          className="mt-1 text-xs font-bold px-3 py-1 rounded bg-white border shadow-xs hover:bg-gray-50"
+                          style={{ borderColor: COLORS.line, color: COLORS.steel }}
+                        >
+                          Clear All Filters
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               )}
-              {rows.map((e, i) => (
-                <tr key={e.id} style={{ background: i % 2 ? "#fff" : COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
-                  <td className="px-3 py-2 mono whitespace-nowrap">{e.date}</td>
-                  <td className="px-3 py-2 mono">{e.job?.jobOrderNo || "—"}</td>
-                  <td className="px-3 py-2">{e.job?.clientName || "—"}</td>
-                  <td className="px-3 py-2 font-medium">{e.workerName}</td>
-                  <td className="px-3 py-2 mono">{e.category}</td>
-                  <td className="px-3 py-2 mono">{e.timeIn}</td>
-                  <td className="px-3 py-2 mono">{e.timeOut}</td>
-                  <td className="px-3 py-2 mono">{e.hours.toFixed(2)}</td>
-                  <td className="px-3 py-2 mono">{e.days.toFixed(3)}</td>
-                  <td className="px-3 py-2">{e.job?.amc ? "AMC" : "Non-AMC"}</td>
-                  <td className="px-3 py-2 mono font-semibold">{fmtMoney(e.cost)}</td>
+              {filteredRows.map((e, i) => (
+                <tr key={e.id || `${e.date}-${e.workerId}-${i}`} style={{ background: i % 2 ? "#fff" : COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
+                  <td className="px-3 py-2 mono whitespace-nowrap font-medium">{e.date}</td>
+                  <td className="px-3 py-2 mono font-bold" style={{ color: COLORS.steel }}>{e.job?.jobOrderNo || e.jobOrderNo || "—"}</td>
+                  <td className="px-3 py-2 font-medium">{e.job?.clientName || "—"}</td>
+                  <td className="px-3 py-2 font-medium">{e.workerName || "—"}</td>
+                  <td className="px-3 py-2 mono">{e.category || "—"}</td>
+                  <td className="px-3 py-2 mono">{e.timeIn || "—"}</td>
+                  <td className="px-3 py-2 mono">{e.timeOut || "—"}</td>
+                  <td className="px-3 py-2 mono font-semibold">{Number(e.hours || 0).toFixed(2)}</td>
+                  <td className="px-3 py-2 mono">{Number(e.days || 0).toFixed(3)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`text-[10.5px] px-2 py-0.5 rounded font-semibold ${
+                      e.job?.amc || e.job?.contractType === "amc"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-gray-200 text-gray-700"
+                    }`}>
+                      {e.job?.amc || e.job?.contractType === "amc" ? "AMC" : "Non-AMC"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 mono font-semibold">{fmtMoney(e.cost || 0)}</td>
+                  <td className="px-3 py-2 text-xs max-w-xs truncate" title={e.note || e.scope || e.job?.scope || ""}>
+                    {e.note || e.scope || e.job?.scope || "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -3987,6 +4581,13 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
   const [expenseJob, setExpenseJob] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
+  // Filters & sorting state
+  const [search, setSearch] = useState("");
+  const [budgetStatusFilter, setBudgetStatusFilter] = useState("all"); // "all" | "overrun" | "nearing" | "on-track" | "no-budget"
+  const [jobStatusFilter, setJobStatusFilter] = useState("all"); // "all" | "In Progress" | "Assigned" | "Pending Allocation" | "Completed" | "On Hold"
+  const [contractTypeFilter, setContractTypeFilter] = useState("all"); // "all" | "amc" | "non_amc"
+  const [sortBy, setSortBy] = useState("risk"); // "risk" | "actual-desc" | "budget-desc" | "job-desc" | "client-asc"
+
   const rows = useMemo(() => jobOrders.map((j) => ({
     job: j, f: computeJobFinancials(j, vehicles, entries, cash.entries, otherExpenses.entries),
   })).sort((a, b) => {
@@ -4002,6 +4603,47 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
   const overrunJobs = withBudget.filter((r) => r.f.budgetStatus === "overrun");
   const nearingJobs = withBudget.filter((r) => r.f.budgetStatus === "nearing");
   const onTrackJobs = withBudget.filter((r) => r.f.budgetStatus === "on-track");
+  const noBudgetJobs = rows.filter((r) => r.f.budgetStatus === "no-budget");
+
+  // Filtered and sorted rows
+  const filteredRows = useMemo(() => {
+    return rows.filter(({ job, f }) => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchText = `${job.jobOrderNo} ${job.clientName || ""} ${job.projectNo || ""} ${job.scope || ""} ${job.area || ""} ${job.emirates || ""} ${job.quotationRef || ""}`.toLowerCase();
+        if (!matchText.includes(q)) return false;
+      }
+      if (budgetStatusFilter !== "all" && f.budgetStatus !== budgetStatusFilter) {
+        return false;
+      }
+      if (jobStatusFilter !== "all" && job.status !== jobStatusFilter) {
+        return false;
+      }
+      if (contractTypeFilter !== "all") {
+        const isAmc = job.contractType === "amc" || job.amc === true;
+        if (contractTypeFilter === "amc" && !isAmc) return false;
+        if (contractTypeFilter === "non_amc" && isAmc) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      if (sortBy === "actual-desc") {
+        return b.f.actualCost - a.f.actualCost;
+      }
+      if (sortBy === "budget-desc") {
+        return b.f.budget - a.f.budget;
+      }
+      if (sortBy === "job-desc") {
+        return (parseInt(b.job.jobOrderNo, 10) || 0) - (parseInt(a.job.jobOrderNo, 10) || 0);
+      }
+      if (sortBy === "client-asc") {
+        return (a.job.clientName || "").localeCompare(b.job.clientName || "");
+      }
+      const order = { "overrun": 0, "nearing": 1, "on-track": 2, "no-budget": 3 };
+      return order[a.f.budgetStatus] - order[b.f.budgetStatus] || (b.job.createdAt || 0) - (a.job.createdAt || 0);
+    });
+  }, [rows, search, budgetStatusFilter, jobStatusFilter, contractTypeFilter, sortBy]);
+
+  const hasActiveFilters = !!search || budgetStatusFilter !== "all" || jobStatusFilter !== "all" || contractTypeFilter !== "all" || sortBy !== "risk";
 
   return (
     <div>
@@ -4019,40 +4661,238 @@ function JobCostingPanel({ jobOrders, workers, vehicles, categories, entries, ca
           <div className="text-[10px] uppercase tracking-widest text-white/50">Total Actual Cost</div>
           <div className="disp text-xl font-bold" style={{ color: totalActual > totalTarget && totalTarget > 0 ? COLORS.urgent : COLORS.safety }}>{fmtMoney(totalActual)}</div>
         </div>
-        <div className="rounded-lg p-3" style={{ background: "#fff", border: `1.5px solid ${COLORS.urgent}` }}>
-          <div className="text-[10px] uppercase tracking-widest" style={{ color: COLORS.urgent }}>Over Budget</div>
+        <button
+          type="button"
+          onClick={() => setBudgetStatusFilter(budgetStatusFilter === "overrun" ? "all" : "overrun")}
+          className={`rounded-lg p-3 text-left transition-all cursor-pointer ${budgetStatusFilter === "overrun" ? "ring-2 ring-red-500 shadow-md scale-[1.02]" : "hover:shadow-sm hover:scale-[1.01]"}`}
+          style={{ background: "#fff", border: `1.5px solid ${COLORS.urgent}` }}
+          title="Click to filter Over Budget jobs"
+        >
+          <div className="text-[10px] uppercase tracking-widest flex items-center justify-between" style={{ color: COLORS.urgent }}>
+            <span>Over Budget</span>
+            {budgetStatusFilter === "overrun" && <span className="text-[9px] font-bold bg-red-100 text-red-700 px-1.5 py-0.2 rounded">FILTERED</span>}
+          </div>
           <div className="disp text-xl font-bold" style={{ color: COLORS.urgent }}>{overrunJobs.length} job{overrunJobs.length === 1 ? "" : "s"}</div>
-        </div>
-        <div className="rounded-lg p-3" style={{ background: "#fff", border: `1.5px solid ${COLORS.amber}` }}>
-          <div className="text-[10px] uppercase tracking-widest" style={{ color: COLORS.amber }}>Nearing Target</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBudgetStatusFilter(budgetStatusFilter === "nearing" ? "all" : "nearing")}
+          className={`rounded-lg p-3 text-left transition-all cursor-pointer ${budgetStatusFilter === "nearing" ? "ring-2 ring-amber-500 shadow-md scale-[1.02]" : "hover:shadow-sm hover:scale-[1.01]"}`}
+          style={{ background: "#fff", border: `1.5px solid ${COLORS.amber}` }}
+          title="Click to filter Nearing Target jobs"
+        >
+          <div className="text-[10px] uppercase tracking-widest flex items-center justify-between" style={{ color: COLORS.amber }}>
+            <span>Nearing Target</span>
+            {budgetStatusFilter === "nearing" && <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded">FILTERED</span>}
+          </div>
           <div className="disp text-xl font-bold" style={{ color: COLORS.amber }}>{nearingJobs.length} job{nearingJobs.length === 1 ? "" : "s"}</div>
-        </div>
-        <div className="rounded-lg p-3" style={{ background: "#fff", border: `1.5px solid ${COLORS.go}` }}>
-          <div className="text-[10px] uppercase tracking-widest" style={{ color: COLORS.go }}>On Track</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setBudgetStatusFilter(budgetStatusFilter === "on-track" ? "all" : "on-track")}
+          className={`rounded-lg p-3 text-left transition-all cursor-pointer ${budgetStatusFilter === "on-track" ? "ring-2 ring-emerald-500 shadow-md scale-[1.02]" : "hover:shadow-sm hover:scale-[1.01]"}`}
+          style={{ background: "#fff", border: `1.5px solid ${COLORS.go}` }}
+          title="Click to filter On Track jobs"
+        >
+          <div className="text-[10px] uppercase tracking-widest flex items-center justify-between" style={{ color: COLORS.go }}>
+            <span>On Track</span>
+            {budgetStatusFilter === "on-track" && <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">FILTERED</span>}
+          </div>
           <div className="disp text-xl font-bold" style={{ color: COLORS.go }}>{onTrackJobs.length} job{onTrackJobs.length === 1 ? "" : "s"}</div>
-        </div>
+        </button>
       </div>
 
-      {(overrunJobs.length > 0 || nearingJobs.length > 0) && (
+      {(overrunJobs.length > 0 || nearingJobs.length > 0) && budgetStatusFilter === "all" && (
         <div className="mb-5 rounded-lg p-3" style={{ background: "#FBEAEA", border: `1.5px solid ${COLORS.urgent}` }}>
-          <div className="text-[11px] font-bold uppercase tracking-wide mb-1.5 flex items-center gap-1.5" style={{ color: COLORS.urgent }}>
-            <AlertTriangle size={13} /> Needs Attention
+          <div className="text-[11px] font-bold uppercase tracking-wide mb-1.5 flex items-center justify-between" style={{ color: COLORS.urgent }}>
+            <span className="flex items-center gap-1.5"><AlertTriangle size={13} /> Needs Attention ({overrunJobs.length + nearingJobs.length} At-Risk Jobs)</span>
+            <button
+              type="button"
+              onClick={() => setBudgetStatusFilter("overrun")}
+              className="text-[10px] underline font-bold cursor-pointer hover:opacity-80"
+            >
+              Filter Overrun Only
+            </button>
           </div>
           <div className="grid gap-1">
-            {[...overrunJobs, ...nearingJobs].map(({ job, f }) => (
+            {[...overrunJobs, ...nearingJobs].slice(0, 5).map(({ job, f }) => (
               <div key={job.id} className="flex items-center justify-between text-[12px]">
                 <span>#{job.jobOrderNo} — {job.clientName}</span>
                 <span className="mono font-semibold" style={{ color: BUDGET_STATUS_META[f.budgetStatus].color }}>{f.percentOfTarget.toFixed(0)}% of target</span>
               </div>
             ))}
+            {overrunJobs.length + nearingJobs.length > 5 && (
+              <div className="text-[11px] text-gray-500 mt-0.5 italic">
+                + {overrunJobs.length + nearingJobs.length - 5} more at-risk jobs.
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* --- Filter & Search Toolbar --- */}
+      <div className="p-3.5 rounded-xl bg-white border shadow-sm mb-4 space-y-3" style={{ borderColor: COLORS.line }}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by Job #, Client, Project #, Scope, Area..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-lg bg-slate-50 border focus:bg-white focus:outline-none transition-colors"
+              style={{ borderColor: COLORS.line }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Budget Health Filter */}
+          <div className="min-w-[170px]">
+            <select
+              value={budgetStatusFilter}
+              onChange={(e) => setBudgetStatusFilter(e.target.value)}
+              className="w-full px-2.5 py-2 text-xs rounded-lg bg-slate-50 border font-semibold text-slate-700 focus:outline-none"
+              style={{ borderColor: COLORS.line }}
+            >
+              <option value="all">All Budget Statuses ({rows.length})</option>
+              <option value="overrun">🚨 Over Budget ({overrunJobs.length})</option>
+              <option value="nearing">⚠️ Nearing Target ({nearingJobs.length})</option>
+              <option value="on-track">✅ On Track ({onTrackJobs.length})</option>
+              <option value="no-budget">⚪ No Budget Set ({noBudgetJobs.length})</option>
+            </select>
+          </div>
+
+          {/* Job Operational Status Filter */}
+          <div className="min-w-[150px]">
+            <select
+              value={jobStatusFilter}
+              onChange={(e) => setJobStatusFilter(e.target.value)}
+              className="w-full px-2.5 py-2 text-xs rounded-lg bg-slate-50 border font-medium text-slate-700 focus:outline-none"
+              style={{ borderColor: COLORS.line }}
+            >
+              <option value="all">All Job Statuses</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Assigned">Assigned</option>
+              <option value="Pending Allocation">Pending Allocation</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+            </select>
+          </div>
+
+          {/* Contract Type Filter */}
+          <div className="min-w-[130px]">
+            <select
+              value={contractTypeFilter}
+              onChange={(e) => setContractTypeFilter(e.target.value)}
+              className="w-full px-2.5 py-2 text-xs rounded-lg bg-slate-50 border font-medium text-slate-700 focus:outline-none"
+              style={{ borderColor: COLORS.line }}
+            >
+              <option value="all">All Types</option>
+              <option value="amc">AMC Only</option>
+              <option value="non_amc">Non-AMC Only</option>
+            </select>
+          </div>
+
+          {/* Sort By */}
+          <div className="min-w-[170px]">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full px-2.5 py-2 text-xs rounded-lg bg-slate-50 border font-medium text-slate-700 focus:outline-none"
+              style={{ borderColor: COLORS.line }}
+            >
+              <option value="risk">Sort: At-Risk First</option>
+              <option value="actual-desc">Sort: Highest Spend</option>
+              <option value="budget-desc">Sort: Highest Budget</option>
+              <option value="job-desc">Sort: Job # (Newest)</option>
+              <option value="client-asc">Sort: Client Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Quick Filter Pills & Result Counter */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t text-xs" style={{ borderColor: COLORS.line }}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mr-1">Quick Filter:</span>
+            {[
+              { id: "all", label: "All", count: rows.length },
+              { id: "overrun", label: "Over Budget", count: overrunJobs.length, color: COLORS.urgent },
+              { id: "nearing", label: "Nearing Target", count: nearingJobs.length, color: COLORS.amber },
+              { id: "on-track", label: "On Track", count: onTrackJobs.length, color: COLORS.go },
+              { id: "no-budget", label: "No Budget", count: noBudgetJobs.length, color: "#8A8F84" },
+            ].map((p) => {
+              const active = budgetStatusFilter === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setBudgetStatusFilter(p.id)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                    active
+                      ? "bg-slate-800 text-white shadow-xs font-bold"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {p.color && <span className="w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />}
+                  <span>{p.label}</span>
+                  <span className="opacity-70 text-[10px]">({p.count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500 font-mono">
+              Showing <strong>{filteredRows.length}</strong> of {rows.length} jobs
+            </span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setBudgetStatusFilter("all");
+                  setJobStatusFilter("all");
+                  setContractTypeFilter("all");
+                  setSortBy("risk");
+                }}
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-red-600 hover:bg-red-50 border border-red-200 cursor-pointer transition-colors"
+              >
+                Reset Filters
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => exportBudgetTrackingReport(filteredRows.map((r) => r.job), vehicles, entries, cash, otherExpenses.entries)}
+              className="px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 cursor-pointer transition-colors ml-1"
+              title="Export filtered costing records to Excel"
+            >
+              <FileSpreadsheet size={13} /> Export (.XLSX)
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* --- detailed per-job costing --- */}
       <div className="grid gap-2">
-        {rows.length === 0 && <EmptyState text="No job orders yet." />}
-        {rows.map(({ job, f }) => {
+        {filteredRows.length === 0 && (
+          <EmptyState
+            text={
+              rows.length === 0
+                ? "No job orders yet."
+                : "No job costing records match the selected filters."
+            }
+          />
+        )}
+        {filteredRows.map(({ job, f }) => {
           const open = expandedId === job.id;
           const meta = BUDGET_STATUS_META[f.budgetStatus];
           const pct = f.percentOfTarget != null ? Math.min(f.percentOfTarget, 999) : 0;
@@ -6778,7 +7618,7 @@ function StaffPanel({ workers, categories, vehicles, jobOrders, onUpdateWorker, 
 /* ---------------------------------------------------------------------
    AMC MASTER PANEL
 --------------------------------------------------------------------- */
-function AmcMasterPanel({ amcContracts, jobOrders, onAddContract, onUpdateContract }) {
+function AmcMasterPanel({ amcContracts, jobOrders, amcServices = [], onAddContract, onUpdateContract, onDeleteContract }) {
   const [modal, setModal] = useState(null); // "new" or amc object
   const [search, setSearch] = useState("");
 
@@ -6816,9 +7656,37 @@ function AmcMasterPanel({ amcContracts, jobOrders, onAddContract, onUpdateContra
                   <div className="text-[11px] font-bold tracking-wider" style={{ color: COLORS.steel }}>{amc.refNo}</div>
                   <div className="text-lg font-bold disp leading-tight">{amc.clientName}</div>
                 </div>
-                <button onClick={() => setModal(amc)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">
-                  <Settings2 size={14} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setModal(amc)}
+                    className="p-1.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-black transition-colors"
+                    title="Edit AMC Contract"
+                  >
+                    <Settings2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const countSRs = srs.length;
+                      const countServices = amcServices ? amcServices.filter((s) => s.amcId === amc.id || s.amcRefNo === amc.refNo).length : 0;
+                      let confirmMsg = `Are you sure you want to delete AMC contract "${amc.refNo}" (${amc.clientName})?`;
+                      if (countSRs > 0 || countServices > 0) {
+                        const parts = [];
+                        if (countSRs > 0) parts.push(`${countSRs} Service Request(s) / Job Order(s)`);
+                        if (countServices > 0) parts.push(`${countServices} scheduled AMC visit(s)`);
+                        confirmMsg += `\n\nNotice: This contract is referenced by ${parts.join(" and ")}. Deleting it will remove the contract from AMC Master and dropdown selectors.`;
+                      } else {
+                        confirmMsg += " This action cannot be undone.";
+                      }
+                      if (window.confirm(confirmMsg)) {
+                        onDeleteContract(amc.id);
+                      }
+                    }}
+                    className="p-1.5 rounded bg-gray-100 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+                    title="Delete AMC Contract"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm mt-3 pb-3 border-b" style={{ borderColor: COLORS.line }}>
@@ -6856,17 +7724,24 @@ function AmcMasterPanel({ amcContracts, jobOrders, onAddContract, onUpdateContra
             else onUpdateContract(modal.id, data);
             setModal(null);
           }}
+          onDelete={(id) => {
+            if (onDeleteContract) onDeleteContract(id);
+            setModal(null);
+          }}
+          jobOrders={jobOrders}
+          amcServices={amcServices}
         />
       )}
     </div>
   );
 }
 
-function AmcModal({ amc, onClose, onSave }) {
+function AmcModal({ amc, onClose, onSave, onDelete, jobOrders = [], amcServices = [] }) {
   const [form, setForm] = useState(amc || {
     refNo: "", clientName: "", startDate: todayISO(), endDate: "",
     servicesPerYear: "4", servicesPerIndoorUnit: "4", servicesPerOutdoorUnit: "2",
-    invoiceFrequency: "Quarterly"
+    invoiceFrequency: "Quarterly", area: "Main Facility", emirates: "Dubai",
+    autoGenerateServices: true,
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -6885,7 +7760,15 @@ function AmcModal({ amc, onClose, onSave }) {
         </div>
         <div className="p-5 overflow-y-auto">
           <Field label="AMC Ref No"><input type="text" className={inputCls} style={inputStyle} value={form.refNo} onChange={(e) => set("refNo", e.target.value)} placeholder="AMC-2026-001" /></Field>
-          <Field label="Client Name"><input type="text" className={inputCls} style={inputStyle} value={form.clientName} onChange={(e) => set("clientName", e.target.value)} /></Field>
+          <Field label="Client Name"><input type="text" className={inputCls} style={inputStyle} value={form.clientName} onChange={(e) => set("clientName", e.target.value)} placeholder="e.g. Carrefour Market" /></Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Area / Facility"><input type="text" className={inputCls} style={inputStyle} value={form.area || ""} onChange={(e) => set("area", e.target.value)} placeholder="e.g. Al Barsha" /></Field>
+            <Field label="Emirates">
+              <select className={inputCls} style={inputStyle} value={form.emirates || "Dubai"} onChange={(e) => set("emirates", e.target.value)}>
+                {EMIRATES.map(em => <option key={em} value={em}>{em}</option>)}
+              </select>
+            </Field>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Start Date"><input type="date" className={inputCls} style={inputStyle} value={form.startDate} onChange={(e) => set("startDate", e.target.value)} /></Field>
             <Field label="End Date"><input type="date" className={inputCls} style={inputStyle} value={form.endDate} onChange={(e) => set("endDate", e.target.value)} /></Field>
@@ -6905,10 +7788,52 @@ function AmcModal({ amc, onClose, onSave }) {
             <Field label="Serv. / Indoor Unit"><input type="number" min="1" className={inputCls} style={inputStyle} value={form.servicesPerIndoorUnit} onChange={(e) => set("servicesPerIndoorUnit", e.target.value)} /></Field>
             <Field label="Serv. / Outdoor Unit"><input type="number" min="1" className={inputCls} style={inputStyle} value={form.servicesPerOutdoorUnit} onChange={(e) => set("servicesPerOutdoorUnit", e.target.value)} /></Field>
           </div>
+          {!amc && (
+            <div className="p-3 rounded-lg border bg-amber-50/70 flex items-start gap-2.5 mt-2" style={{ borderColor: COLORS.line }}>
+              <input
+                type="checkbox"
+                id="autoGenServices"
+                checked={form.autoGenerateServices !== false}
+                onChange={(e) => set("autoGenerateServices", e.target.checked)}
+                className="mt-0.5 cursor-pointer"
+              />
+              <label htmlFor="autoGenServices" className="text-xs text-slate-700 cursor-pointer">
+                <strong className="block text-slate-900 font-bold">Auto-generate scheduled visits on AMC Board</strong>
+                Automatically schedule {form.servicesPerYear || 4} periodic PM cycle visits across the contract period so they appear on the AMC Board ready for dispatch.
+              </label>
+            </div>
+          )}
           
-          <div className="flex gap-2 pt-3 mt-2 border-t" style={{ borderColor: COLORS.line }}>
-            <button onClick={onClose} className="flex-1 py-2 rounded-lg text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
-            <button onClick={() => form.refNo && onSave(form)} className="flex-1 py-2 rounded-lg text-sm font-bold disp tracking-wide shadow-sm" style={{ background: COLORS.safety, color: COLORS.steelDark, opacity: form.refNo ? 1 : 0.5 }}>SAVE</button>
+          <div className="flex items-center justify-between gap-2 pt-3 mt-2 border-t" style={{ borderColor: COLORS.line }}>
+            {amc && onDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const srsCount = jobOrders.filter((j) => j.amcRefNo === amc.refNo || (j.amc && j.projectNo === amc.refNo)).length;
+                  const servicesCount = amcServices.filter((s) => s.amcId === amc.id || s.amcRefNo === amc.refNo).length;
+                  let confirmMsg = `Are you sure you want to delete AMC contract "${amc.refNo}" (${amc.clientName})?`;
+                  if (srsCount > 0 || servicesCount > 0) {
+                    const parts = [];
+                    if (srsCount > 0) parts.push(`${srsCount} Service Request(s) / Job Order(s)`);
+                    if (servicesCount > 0) parts.push(`${servicesCount} scheduled AMC visit(s)`);
+                    confirmMsg += `\n\nNotice: This contract has ${parts.join(" and ")} associated with it. Deleting it will remove the contract from AMC Master and dropdown selectors.`;
+                  } else {
+                    confirmMsg += " This action cannot be undone.";
+                  }
+                  if (window.confirm(confirmMsg)) {
+                    onDelete(amc.id);
+                  }
+                }}
+                className="px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+                title="Delete this AMC contract"
+              >
+                <Trash2 size={14} /> Delete Contract
+              </button>
+            ) : <div />}
+            <div className="flex gap-2 ml-auto">
+              <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: COLORS.paperDark, color: COLORS.steel }}>Cancel</button>
+              <button onClick={() => form.refNo && onSave(form)} className="px-4 py-2 rounded-lg text-sm font-bold disp tracking-wide shadow-sm" style={{ background: COLORS.safety, color: COLORS.steelDark, opacity: form.refNo ? 1 : 0.5 }}>SAVE</button>
+            </div>
           </div>
         </div>
       </div>
@@ -7262,6 +8187,8 @@ function AmcBoardPanel({
   vehicles = [],
   onAddContract,
   onUpdateContract,
+  onDeleteContract,
+  onGenerateServicesForContract,
   onAddAmcService,
   onUpdateAmcService,
   onDeleteAmcService,
@@ -7276,6 +8203,12 @@ function AmcBoardPanel({
   const [selectedContractId, setSelectedContractId] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  const contractsWithoutServices = useMemo(() => {
+    return amcContracts.filter((c) => {
+      return !amcServices.some((s) => s.amcId === c.id || s.amcRefNo === c.refNo);
+    });
+  }, [amcContracts, amcServices]);
 
   // Map and sync each service with live job on the Board
   const enrichedServices = useMemo(() => {
@@ -7671,17 +8604,95 @@ function AmcBoardPanel({
         </div>
       </div>
 
+      {/* CONTRACTS AWAITING VISITS BANNER */}
+      {contractsWithoutServices.length > 0 && selectedContractId === "all" && (
+        <div className="p-3.5 rounded-xl border bg-amber-50/80 flex flex-wrap items-center justify-between gap-3 shadow-xs" style={{ borderColor: "#FCD34D" }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0">
+              <Briefcase size={16} />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-900">
+                {contractsWithoutServices.length} AMC Contract{contractsWithoutServices.length > 1 ? "s" : ""} registered without visits on AMC Board:
+              </div>
+              <div className="text-[11px] text-amber-800">
+                {contractsWithoutServices.map(c => `${c.refNo} (${c.clientName})`).join(", ")}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {contractsWithoutServices.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => onGenerateServicesForContract && onGenerateServicesForContract(c.id)}
+                className="disp text-[11px] font-bold px-3 py-1.5 rounded-md bg-amber-400 hover:bg-amber-500 text-slate-900 shadow-xs cursor-pointer flex items-center gap-1 transition-all"
+                title={`Generate ${c.servicesPerYear || 4} annual service visits for ${c.refNo}`}
+              >
+                <Plus size={12} /> Auto-Schedule {c.refNo} ({c.servicesPerYear || 4} Visits)
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* CARDS GRID (THE CLONE OF THE BOARD) */}
       <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
         {filteredServices.length === 0 && (
           <div className="col-span-full">
-            <EmptyState
-              text={
-                amcServices.length === 0
-                  ? "No AMC service visits scheduled yet. Click '+ SCHEDULE AMC SERVICE' to plan a periodic service cycle."
-                  : "No AMC services match the current filters."
-              }
-            />
+            {selectedContractId !== "all" && amcContracts.find((a) => a.id === selectedContractId || a.refNo === selectedContractId) ? (
+              (() => {
+                const sel = amcContracts.find((a) => a.id === selectedContractId || a.refNo === selectedContractId);
+                return (
+                  <div className="p-8 rounded-xl bg-white border text-center space-y-4 shadow-sm" style={{ borderColor: COLORS.line }}>
+                    <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+                      <CalendarCheck size={28} />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold disp text-slate-800">
+                        No visits scheduled on AMC Board for {sel.clientName} ({sel.refNo})
+                      </div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                        Contract quota: {sel.servicesPerYear || 4} annual services ({sel.servicesPerIndoorUnit || 4} Indoor / {sel.servicesPerOutdoorUnit || 2} Outdoor)
+                        · {sel.startDate} to {sel.endDate || "1 Year"}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        onClick={() => onGenerateServicesForContract && onGenerateServicesForContract(sel.id)}
+                        className="disp flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-slate-900 shadow-md cursor-pointer hover:opacity-90"
+                        style={{ background: COLORS.safety }}
+                      >
+                        <Plus size={15} /> AUTO-GENERATE {sel.servicesPerYear || 4} ANNUAL PM VISITS
+                      </button>
+                      <button
+                        onClick={() => {
+                          setServiceModal({
+                            amcId: sel.id,
+                            amcRefNo: sel.refNo,
+                            clientName: sel.clientName,
+                            indoorUnits: sel.servicesPerIndoorUnit || 4,
+                            outdoorUnits: sel.servicesPerOutdoorUnit || 2,
+                            area: sel.area || "Main Facility",
+                            emirates: sel.emirates || "Dubai",
+                          });
+                        }}
+                        className="disp flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 cursor-pointer"
+                      >
+                        <Plus size={15} /> + SCHEDULE INDIVIDUAL VISIT
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <EmptyState
+                text={
+                  amcServices.length === 0
+                    ? "No AMC service visits scheduled yet. Click '+ SCHEDULE AMC SERVICE' to plan a periodic service cycle."
+                    : "No AMC services match the current filters."
+                }
+              />
+            )}
           </div>
         )}
 
@@ -7868,6 +8879,12 @@ function AmcBoardPanel({
             else onUpdateContract(contractModal.id, data);
             setContractModal(null);
           }}
+          onDelete={(id) => {
+            if (onDeleteContract) onDeleteContract(id);
+            setContractModal(null);
+          }}
+          jobOrders={jobOrders}
+          amcServices={amcServices}
         />
       )}
 

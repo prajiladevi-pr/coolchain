@@ -137,6 +137,9 @@ const Edit = (p) => <Svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h
 const Trash2 = (p) => <Svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></Svg>;
 const Filter = (p) => <Svg {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></Svg>;
 const Upload = (p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Svg>;
+const Eye = (p) => <Svg {...p}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></Svg>;
+const Download = (p) => <Svg {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>;
+const Printer = (p) => <Svg {...p}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></Svg>;
 
 
 /* ---------------------------------------------------------------------
@@ -567,6 +570,8 @@ const SEED_JOBS = [
     id: "j2003", jobOrderNo: "2003", projectNo: "PRJ-8998", clientName: "Gulf Cold Store LLC", quotationRef: "QT-2026-088",
     area: "Jebel Ali Industrial", emirates: "Dubai", scope: "Compressor Overhaul & Blower Motor Bearing Replacement", priority: "Medium", contractType: "amc", amc: true, amcRefNo: "",
     workerIds: ["w1", "w5", "w12"], teamLeadId: "w1", vehicleId: "v2", avgOneWayKm: "42", status: "Completed", estimatedDays: "3",
+    workDone: "Replaced blower motor bearings on cold room #2, overhauled compressor valve plates, pressure-tested with nitrogen, and recharged refrigerant.",
+    completedAt: todayISO(),
     createdAt: Date.now() - 86400000 * 5, createdDate: todayISO(), assignedDate: todayISO(),
     invoiceStatus: "Paid", invoiceDate: todayISO(), invoiceNumber: "INV-8998", invoiceAmount: "16500", budgetAmount: "16500", marginPercent: "22",
   },
@@ -1788,6 +1793,912 @@ async function exportAttendanceReport(workers = [], jobOrders = [], entries = []
   downloadWorkbook(wb, filename);
 }
 
+function escapeHtml(str) {
+  return String(str == null ? "" : str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatReceiptShortDate(dStr) {
+  if (!dStr) return "";
+  const iso = excelDateToISO(dStr);
+  const parts = iso.split("-");
+  if (parts.length === 3) {
+    return `${parts[2].padStart(2, "0")}/${parts[1].padStart(2, "0")}/${parts[0].slice(-2)}`;
+  }
+  return String(dStr);
+}
+
+function buildServiceReportData(job, workers = [], vehicles = [], entries = [], attendance = { entries: [] }, cash = { entries: [] }, otherExpenses = [], amcServices = []) {
+  if (!job) return null;
+  const sr = job.jobOrderNo ? String(job.jobOrderNo).trim() : null;
+  const jobEntries = (entries || [])
+    .filter((e) => (e.jobId && e.jobId === job.id) || (sr && e.jobOrderNo && String(e.jobOrderNo).trim() === sr))
+    .sort((a, b) => {
+      if ((a.date || "") !== (b.date || "")) return (a.date || "").localeCompare(b.date || "");
+      return (a.timeIn || "").localeCompare(b.timeIn || "");
+    });
+
+  const { materialEntries, otherExpenseEntries } = computeJobFinancials(job, vehicles, entries, cash?.entries, otherExpenses);
+  const linkedAmcService = (amcServices || []).find((s) => (job.amcServiceId && s.id === job.amcServiceId) || s.dispatchedJobId === job.id) || null;
+
+  // Determine start & end times
+  const timedIn = jobEntries.map((e) => e.timeIn).filter(Boolean).sort();
+  const timedOut = jobEntries.map((e) => e.timeOut).filter(Boolean).sort();
+  let startTime = timedIn.length ? formatTime12h(timedIn[0]) : (job.assignedTime ? formatTime12h(job.assignedTime) : "");
+  let endTime = timedOut.length ? formatTime12h(timedOut[timedOut.length - 1]) : "";
+  if (!startTime && job.teamLeadId) {
+    const leadShift = (attendance?.entries || []).find((a) => a.workerId === job.teamLeadId && (a.clockInDate === (job.assignedDate || job.createdDate) || a.status === "open"));
+    if (leadShift?.clockInTime) startTime = formatTime12h(leadShift.clockInTime);
+  }
+
+  // Job code mapping
+  let jobCode = "Non AMC";
+  if (job.contractType === "amc" || job.amc === true) jobCode = "AMC";
+  else if (job.contractType === "others") jobCode = "Others";
+
+  // Job status mapping
+  let jobStatus = "Pending";
+  if (job.status === "Completed") jobStatus = "Completed";
+  else if (job.status === "On Hold" || job.status === "Carry Over") jobStatus = "Carry Over";
+
+  // Build line items from saved receiptLineItems OR scope + workDone + crew entry notes
+  let lineItems = [];
+  if (Array.isArray(job.receiptLineItems) && job.receiptLineItems.length > 0) {
+    lineItems = job.receiptLineItems.map((it) => ({ ...it }));
+  } else {
+    const scopeLines = String(job.scope || "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    scopeLines.forEach((rawLine) => {
+      let cleanDesc = rawLine.replace(/^\d+[\.\)]\s*/, "").trim();
+      let qty = "";
+      const qtyMatch = cleanDesc.match(/\(?\s*qty\s*[:\-]?\s*(\d+)\s*\)?/i);
+      if (qtyMatch) {
+        qty = qtyMatch[1];
+        cleanDesc = cleanDesc.replace(qtyMatch[0], "").replace(/\s{2,}/g, " ").trim();
+      }
+      lineItems.push({ description: cleanDesc, qty, remarks: "" });
+    });
+
+    if (job.workDone && job.workDone.trim()) {
+      const wd = job.workDone.trim();
+      if (!scopeLines.some((s) => s.toLowerCase() === wd.toLowerCase())) {
+        lineItems.push({
+          description: `Work Done: ${wd}`,
+          qty: "",
+          remarks: job.completedAt ? `Completed ${formatReceiptShortDate(job.completedAt)}` : (job.status === "On Hold" && job.onHoldReason ? `On Hold: ${job.onHoldReason}` : ""),
+        });
+      }
+    }
+
+    // Group distinct technician work notes
+    const seenNotes = new Map();
+    jobEntries.forEach((e) => {
+      const note = (e.note || "").trim();
+      if (!note) return;
+      if (scopeLines.some((s) => s.toLowerCase() === note.toLowerCase())) return;
+      if (job.workDone && job.workDone.trim().toLowerCase() === note.toLowerCase()) return;
+      const key = note.toLowerCase();
+      const timeStr = e.timeIn && e.timeOut ? `${formatTime12h(e.timeIn)}-${formatTime12h(e.timeOut)}` : (e.hours ? `${Number(e.hours).toFixed(1)}h` : "");
+      const tag = `${e.workerName || "Staff"}${timeStr ? ` (${timeStr})` : ""}`;
+      if (!seenNotes.has(key)) {
+        seenNotes.set(key, { note, tags: [tag] });
+      } else {
+        seenNotes.get(key).tags.push(tag);
+      }
+    });
+    seenNotes.forEach(({ note, tags }) => {
+      lineItems.push({
+        description: note,
+        qty: "",
+        remarks: tags.join(", "),
+      });
+    });
+
+    if (job.remarks && job.remarks.trim()) {
+      if (lineItems.length > 0 && !lineItems[0].remarks) {
+        lineItems[0].remarks = job.remarks.trim();
+      } else if (lineItems.length === 0) {
+        lineItems.push({ description: job.remarks.trim(), qty: "", remarks: "" });
+      }
+    }
+  }
+
+  // Materials text
+  let materials = job.receiptMaterials != null ? job.receiptMaterials : "";
+  if (!materials) {
+    const matParts = [];
+    (materialEntries || []).forEach((m) => {
+      if (m.description) matParts.push(`${m.description}${m.amount ? ` (${fmtMoney(Number(m.amount))})` : ""}`);
+    });
+    (otherExpenseEntries || []).forEach((o) => {
+      if (o.description) matParts.push(`${o.description}${o.amount ? ` (${fmtMoney(Number(o.amount))})` : ""}`);
+    });
+    materials = matParts.join("; ");
+  }
+
+  // Equipment Details
+  let equipmentDetails = job.equipmentDetails || "";
+  if (!equipmentDetails) {
+    const eqParts = [];
+    if (linkedAmcService) {
+      eqParts.push(`${linkedAmcService.serviceType} (${linkedAmcService.indoorUnits || 0} Indoor / ${linkedAmcService.outdoorUnits || 0} Outdoor)`);
+    }
+    if (job.projectNo) eqParts.push(`Project #: ${job.projectNo}`);
+    if (job.amcRefNo) eqParts.push(`AMC Ref: ${job.amcRefNo}`);
+    equipmentDetails = eqParts.join(" · ");
+  }
+
+  // Attendees: workers in jobEntries + assigned job.workerIds
+  const attendeeNames = [];
+  const addName = (wId, fallbackName) => {
+    const w = (workers || []).find((x) => x.id === wId);
+    const n = (w ? w.name : fallbackName) || "";
+    if (n && !attendeeNames.includes(n)) attendeeNames.push(n);
+  };
+  jobEntries.forEach((e) => addName(e.workerId, e.workerName));
+  (job.workerIds || []).forEach((wId) => addName(wId, ""));
+
+  const leadW = (workers || []).find((w) => w.id === job.teamLeadId);
+  const leadSignature = leadW ? leadW.name : (attendeeNames[0] || "");
+
+  const earliestEntryDate = jobEntries.length ? jobEntries[0].date : "";
+  const latestEntryDate = jobEntries.length ? jobEntries[jobEntries.length - 1].date : "";
+
+  return {
+    customerName: job.clientName || "",
+    jobLocation: [job.area, job.emirates].filter(Boolean).join(" - "),
+    completionDate: job.completedAt ? formatReceiptShortDate(job.completedAt) : (job.status === "Completed" ? formatReceiptShortDate(latestEntryDate || todayISO()) : ""),
+    jobNo: job.jobOrderNo || job.id || "",
+    jobDate: formatReceiptShortDate(job.assignedDate || job.createdDate || earliestEntryDate || todayISO()),
+    quotation: job.quotationRef || job.amcRefNo || "",
+    jobCode,
+    jobStatus,
+    equipmentDetails,
+    startTime,
+    endTime,
+    lineItems,
+    materials,
+    feedbackRating: job.customerFeedback || "",
+    feedbackCustomerName: job.feedbackCustomerName || "",
+    feedbackDate: job.feedbackDate || (job.status === "Completed" ? formatReceiptShortDate(job.completedAt || latestEntryDate || todayISO()) : ""),
+    customerComments: job.customerComments || (job.status === "On Hold" && job.onHoldReason ? `On Hold: ${job.onHoldReason}` : ""),
+    attendeesText: Array.isArray(job.receiptAttendees) ? job.receiptAttendees.join("\n") : attendeeNames.join("\n"),
+    leadSignature,
+  };
+}
+
+function drawRoundedRectPath(ctx, x, y, w, h, r) {
+  const rad = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rad, y);
+  ctx.lineTo(x + w - rad, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+  ctx.lineTo(x + w, y + h - rad);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  ctx.lineTo(x + rad, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+  ctx.lineTo(x, y + rad);
+  ctx.quadraticCurveTo(x, y, x + rad, y);
+  ctx.closePath();
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+  const paragraphs = String(text || "").split(/\r?\n/);
+  const lines = [];
+  paragraphs.forEach((p) => {
+    if (!p.trim()) { lines.push(""); return; }
+    const words = p.split(/\s+/);
+    let current = "";
+    words.forEach((word) => {
+      const test = current ? `${current} ${word}` : word;
+      if (ctx.measureText(test).width <= maxWidth) {
+        current = test;
+      } else {
+        if (current) lines.push(current);
+        if (ctx.measureText(word).width <= maxWidth) {
+          current = word;
+        } else {
+          // Break unusually long word safely
+          let chunk = "";
+          for (let i = 0; i < word.length; i++) {
+            if (ctx.measureText(chunk + word[i]).width > maxWidth && chunk) {
+              lines.push(chunk);
+              chunk = word[i];
+            } else {
+              chunk += word[i];
+            }
+          }
+          current = chunk;
+        }
+      }
+    });
+    if (current) lines.push(current);
+  });
+  return lines;
+}
+
+function renderServiceReportCanvas(data) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1240;
+  canvas.height = 1754;
+  const ctx = canvas.getContext("2d");
+
+  const RED = "#C8102E";
+  const DARK_RED = "#9E1B24";
+  const PINK_BG = "#FADADD";
+  const DOT_COLOR = "#B87A80";
+  const INK = "#1E293B";
+
+  // White background
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const L = 44;
+  const R = 1196;
+  const W = R - L; // 1152
+
+  const drawDottedLine = (x1, y, x2) => {
+    ctx.save();
+    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = DOT_COLOR;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x2, y);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawCheckbox = (x, y, label, checked) => {
+    const size = 15;
+    ctx.strokeStyle = DARK_RED;
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(x, y - size + 3, size, size);
+    if (checked) {
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(x + 3, y - 5);
+      ctx.lineTo(x + 6.5, y);
+      ctx.lineTo(x + 14, y - 12);
+      ctx.stroke();
+    }
+    ctx.fillStyle = DARK_RED;
+    ctx.font = "bold 14px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + size + 7, y + 1);
+  };
+
+  // --- 1. HEADER ---
+  // Left COOL BOX blocks
+  ctx.fillStyle = RED;
+  drawRoundedRectPath(ctx, L, 32, 162, 62, 4);
+  ctx.fill();
+  drawRoundedRectPath(ctx, L + 168, 32, 134, 62, 4);
+  ctx.fill();
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 2.5;
+  drawRoundedRectPath(ctx, L + 173, 37, 124, 52, 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "900 44px 'Arial Black', Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("COOL", L + 81, 79);
+  ctx.fillText("BOX", L + 235, 79);
+
+  // Center Arabic + English Title
+  ctx.save();
+  ctx.fillStyle = RED;
+  ctx.direction = "rtl";
+  ctx.font = "bold 21px Arial, Tahoma, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("للأعمال الكهروميكانيكية ذ.م.م", 620, 56);
+  ctx.restore();
+
+  ctx.fillStyle = RED;
+  ctx.font = "bold 19px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("ELECTROMECHANICAL WORKS L.L.C", 620, 86);
+
+  // Right Arabic box
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 3;
+  drawRoundedRectPath(ctx, R - 298, 32, 298, 62, 10);
+  ctx.stroke();
+  ctx.lineWidth = 1.4;
+  drawRoundedRectPath(ctx, R - 293, 37, 288, 52, 7);
+  ctx.stroke();
+  ctx.save();
+  ctx.direction = "rtl";
+  ctx.fillStyle = RED;
+  ctx.font = "bold 38px Arial, Tahoma, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("كول بوكس", R - 149, 77);
+  ctx.restore();
+
+  // SERVICE REPORT Ribbon
+  ctx.fillStyle = RED;
+  drawRoundedRectPath(ctx, 492, 104, 256, 30, 5);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 18px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("SERVICE REPORT", 620, 125);
+
+  // --- 2. METADATA ROWS ---
+  const metaRows = [
+    {
+      y: 170,
+      leftLabel: "Customer Name :", leftVal: data.customerName, leftLineX: L + 148,
+      rightLabel: "Job No.   :", rightVal: data.jobNo, rightLineX: 985, isJobNo: true,
+    },
+    {
+      y: 204,
+      leftLabel: "Job Location :", leftVal: data.jobLocation, leftLineX: L + 130,
+      rightLabel: "Job Date :", rightVal: data.jobDate, rightLineX: 985,
+    },
+    {
+      y: 238,
+      leftLabel: "Completion Date :", leftVal: data.completionDate, leftLineX: L + 158,
+      rightLabel: "Quotation :", rightVal: data.quotation, rightLineX: 990,
+    },
+  ];
+  metaRows.forEach((row) => {
+    ctx.fillStyle = DARK_RED;
+    ctx.font = "bold 15px Arial, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(row.leftLabel, L, row.y);
+    drawDottedLine(row.leftLineX, row.y + 3, 872);
+
+    ctx.fillStyle = INK;
+    ctx.font = "600 17px Arial, sans-serif";
+    ctx.fillText(String(row.leftVal || "").slice(0, 72), row.leftLineX + 10, row.y - 2);
+
+    ctx.fillStyle = DARK_RED;
+    ctx.font = "bold 15px Arial, sans-serif";
+    ctx.fillText(row.rightLabel, 892, row.y);
+    if (!row.isJobNo) drawDottedLine(row.rightLineX, row.y + 3, R);
+
+    ctx.fillStyle = row.isJobNo ? RED : INK;
+    ctx.font = row.isJobNo ? "bold 23px 'Courier New', monospace" : "600 17px Arial, sans-serif";
+    ctx.fillText(String(row.rightVal || ""), row.rightLineX + 6, row.y - 2);
+  });
+
+  // --- 3. 4-COLUMN STATUS GRID ---
+  const gTop = 252;
+  const gHeadH = 32;
+  const gH = 136;
+  const colX = [L, L + 150, L + 320, L + 835, R];
+  const headers4 = ["Job Code", "Job Status", "Equipment Details", "Timing"];
+
+  ctx.fillStyle = PINK_BG;
+  ctx.fillRect(L, gTop, W, gHeadH);
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(L, gTop, W, gH);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(L, gTop + gHeadH);
+  ctx.lineTo(R, gTop + gHeadH);
+  for (let i = 1; i < 4; i++) {
+    ctx.moveTo(colX[i], gTop);
+    ctx.lineTo(colX[i], gTop + gH);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 15px Arial, sans-serif";
+  ctx.textAlign = "center";
+  headers4.forEach((h, i) => {
+    ctx.fillText(h, (colX[i] + colX[i + 1]) / 2, gTop + 21);
+  });
+
+  // Job Code checkboxes
+  drawCheckbox(colX[0] + 16, gTop + 60, "AMC", data.jobCode === "AMC");
+  drawCheckbox(colX[0] + 16, gTop + 90, "Non AMC", data.jobCode === "Non AMC");
+  drawCheckbox(colX[0] + 16, gTop + 120, "Others", data.jobCode === "Others");
+
+  // Job Status checkboxes
+  drawCheckbox(colX[1] + 16, gTop + 60, "Completed", data.jobStatus === "Completed");
+  drawCheckbox(colX[1] + 16, gTop + 90, "Pending", data.jobStatus === "Pending");
+  drawCheckbox(colX[1] + 16, gTop + 120, "Carry Over", data.jobStatus === "Carry Over");
+
+  // Equipment Details
+  ctx.fillStyle = INK;
+  ctx.font = "15px Arial, sans-serif";
+  ctx.textAlign = "left";
+  const eqLines = wrapCanvasText(ctx, data.equipmentDetails, (colX[3] - colX[2]) - 24);
+  eqLines.slice(0, 3).forEach((line, idx) => {
+    ctx.fillText(line, colX[2] + 12, gTop + 60 + idx * 24);
+  });
+
+  // Timing
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 14px Arial, sans-serif";
+  ctx.fillText("Start Time :", colX[3] + 14, gTop + 68);
+  drawDottedLine(colX[3] + 102, gTop + 71, colX[4] - 14);
+  ctx.fillText("End Time :", colX[3] + 14, gTop + 114);
+  drawDottedLine(colX[3] + 102, gTop + 117, colX[4] - 14);
+
+  ctx.fillStyle = INK;
+  ctx.font = "600 16px Arial, sans-serif";
+  ctx.fillText(data.startTime || "", colX[3] + 108, gTop + 66);
+  ctx.fillText(data.endTime || "", colX[3] + 108, gTop + 112);
+
+  // --- 4. MAIN DESCRIPTION TABLE (16 dotted slots) ---
+  const tTop = 400;
+  const tHeadH = 34;
+  const numRows = 16;
+  const rowH = 48;
+  const tBodyH = numRows * rowH; // 768
+  const tH = tHeadH + tBodyH; // 802, ends y = 1202
+  const tColX = [L, L + 78, L + 718, L + 808, R];
+  const tHeaders = ["Sl.No.", "Description", "Qty", "Remarks"];
+
+  ctx.fillStyle = PINK_BG;
+  ctx.fillRect(L, tTop, W, tHeadH);
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(L, tTop, W, tH);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(L, tTop + tHeadH);
+  ctx.lineTo(R, tTop + tHeadH);
+  for (let i = 1; i < 4; i++) {
+    ctx.moveTo(tColX[i], tTop);
+    ctx.lineTo(tColX[i], tTop + tH);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 16px Arial, sans-serif";
+  ctx.textAlign = "center";
+  tHeaders.forEach((h, i) => {
+    ctx.fillText(h, (tColX[i] + tColX[i + 1]) / 2, tTop + 23);
+  });
+
+  // Draw all 15 interior dotted row dividers (plus bottom solid edge)
+  for (let r = 1; r < numRows; r++) {
+    drawDottedLine(L + 2, tTop + tHeadH + r * rowH, R - 2);
+  }
+
+  // Render line items across the ruled dotted slots
+  let slotIdx = 0;
+  (data.lineItems || []).forEach((item, idx) => {
+    if (slotIdx >= numRows) return;
+    ctx.font = "17px Arial, sans-serif";
+    const descLines = wrapCanvasText(ctx, item.description || "", (tColX[2] - tColX[1]) - 24);
+    ctx.font = "15px Arial, sans-serif";
+    const remLines = wrapCanvasText(ctx, item.remarks || "", (tColX[4] - tColX[3]) - 24);
+    const span = Math.max(descLines.length || 1, remLines.length || 1, 1);
+
+    const baseY = tTop + tHeadH + slotIdx * rowH + 32;
+    ctx.fillStyle = INK;
+    ctx.font = "600 17px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(String(idx + 1), (tColX[0] + tColX[1]) / 2, baseY);
+
+    if (item.qty) {
+      ctx.fillText(String(item.qty), (tColX[2] + tColX[3]) / 2, baseY);
+    }
+
+    ctx.textAlign = "left";
+    ctx.font = "17px Arial, sans-serif";
+    descLines.forEach((line, lIdx) => {
+      if (slotIdx + lIdx < numRows) {
+        ctx.fillText(line, tColX[1] + 12, tTop + tHeadH + (slotIdx + lIdx) * rowH + 32);
+      }
+    });
+
+    ctx.font = "15px Arial, sans-serif";
+    remLines.forEach((line, lIdx) => {
+      if (slotIdx + lIdx < numRows) {
+        ctx.fillText(line, tColX[3] + 12, tTop + tHeadH + (slotIdx + lIdx) * rowH + 32);
+      }
+    });
+
+    slotIdx += span;
+  });
+
+  // --- 5. MATERIALS BOX ---
+  const mTop = 1214;
+  const mH = 130;
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(L, mTop, W, mH);
+
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 16px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Materials :", L + 12, mTop + 34);
+  drawDottedLine(L + 104, mTop + 37, R - 14);
+  drawDottedLine(L + 14, mTop + 75, R - 14);
+  drawDottedLine(L + 14, mTop + 113, R - 14);
+
+  if (data.materials) {
+    ctx.fillStyle = INK;
+    ctx.font = "16px Arial, sans-serif";
+    const matLine1Max = W - 130;
+    const matLineFullMax = W - 36;
+    const words = String(data.materials).split(/\s+/);
+    let line1 = "";
+    let splitIdx = words.length;
+    for (let i = 0; i < words.length; i++) {
+      const cand = line1 ? `${line1} ${words[i]}` : words[i];
+      if (ctx.measureText(cand).width <= matLine1Max) {
+        line1 = cand;
+      } else {
+        splitIdx = i;
+        break;
+      }
+    }
+    ctx.fillText(line1, L + 112, mTop + 32);
+    const restWords = words.slice(splitIdx);
+    if (restWords.length > 0) {
+      const restLines = wrapCanvasText(ctx, restWords.join(" "), matLineFullMax);
+      if (restLines[0]) ctx.fillText(restLines[0], L + 16, mTop + 71);
+      if (restLines[1]) ctx.fillText(restLines[1], L + 16, mTop + 109);
+    }
+  }
+
+  // --- 6. CUSTOMER FEEDBACK + ATTENDEES ---
+  const fTop = 1356;
+  const fHeadH = 32;
+  const fH = 290; // ends y = 1646
+  const xSplit = L + 812;
+  const xSub1 = L + 178;
+  const xSub2 = L + 556;
+  const yComments = fTop + 178;
+
+  ctx.fillStyle = PINK_BG;
+  ctx.fillRect(L, fTop, W, fHeadH);
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(L, fTop, W, fH);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(L, fTop + fHeadH);
+  ctx.lineTo(R, fTop + fHeadH);
+  ctx.moveTo(xSplit, fTop);
+  ctx.lineTo(xSplit, fTop + fH);
+  ctx.moveTo(L, yComments);
+  ctx.lineTo(xSplit, yComments);
+  ctx.moveTo(xSub1, fTop + fHeadH);
+  ctx.lineTo(xSub1, yComments);
+  ctx.moveTo(xSub2, fTop + fHeadH);
+  ctx.lineTo(xSub2, yComments);
+  ctx.stroke();
+
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 16px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Customer Feedback", (L + xSplit) / 2, fTop + 22);
+  ctx.fillText("Attendees", (xSplit + R) / 2, fTop + 22);
+
+  // Feedback rating checkboxes
+  ["Excellent", "Good", "Average", "Poor"].forEach((opt, i) => {
+    drawCheckbox(L + 18, fTop + 62 + i * 28, opt, data.feedbackRating === opt);
+  });
+
+  // Customer Name & Date
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 14px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Customer Name :", xSub1 + 12, fTop + 76);
+  drawDottedLine(xSub1 + 132, fTop + 79, xSub2 - 14);
+  ctx.fillText("Date :", xSub1 + 12, fTop + 148);
+  drawDottedLine(xSub1 + 60, fTop + 151, xSub2 - 14);
+
+  ctx.fillStyle = INK;
+  ctx.font = "600 15px Arial, sans-serif";
+  ctx.fillText(String(data.feedbackCustomerName || "").slice(0, 28), xSub1 + 136, fTop + 74);
+  ctx.fillText(String(data.feedbackDate || ""), xSub1 + 68, fTop + 146);
+
+  // Customer Sign
+  drawDottedLine(xSub2 + 24, yComments - 32, xSplit - 24);
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 14px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Customer Sign", (xSub2 + xSplit) / 2, yComments - 12);
+
+  // Customer Comments
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 15px Arial, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Customer Comments :", L + 12, yComments + 28);
+  drawDottedLine(L + 178, yComments + 31, xSplit - 14);
+  drawDottedLine(L + 14, yComments + 64, xSplit - 14);
+  drawDottedLine(L + 14, yComments + 96, xSplit - 14);
+
+  if (data.customerComments) {
+    ctx.fillStyle = INK;
+    ctx.font = "15px Arial, sans-serif";
+    const cLines = wrapCanvasText(ctx, data.customerComments, (xSplit - L) - 36);
+    if (cLines[0]) ctx.fillText(cLines[0], L + 14, yComments + 60);
+    if (cLines[1]) ctx.fillText(cLines[1], L + 14, yComments + 92);
+  }
+
+  // Attendees list
+  const attendeeLines = String(data.attendeesText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  ctx.fillStyle = INK;
+  ctx.font = "600 18px Arial, sans-serif";
+  ctx.textAlign = "left";
+  attendeeLines.slice(0, 5).forEach((name, idx) => {
+    ctx.fillText(name, xSplit + 28, fTop + 68 + idx * 32);
+  });
+
+  // Lead signature line inside Attendees box
+  drawDottedLine(xSplit + 42, fTop + fH - 34, R - 42);
+  if (data.leadSignature) {
+    ctx.fillStyle = "#334155";
+    ctx.font = "italic 600 17px Georgia, serif";
+    ctx.textAlign = "center";
+    ctx.fillText(data.leadSignature, (xSplit + R) / 2, fTop + fH - 42);
+  }
+  ctx.fillStyle = DARK_RED;
+  ctx.font = "bold 14px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Signature", (xSplit + R) / 2, fTop + fH - 12);
+
+  // --- 7. BOTTOM CONTACT BAR ---
+  const bTop = 1660;
+  const bH = 44;
+  ctx.fillStyle = RED;
+  drawRoundedRectPath(ctx, L, bTop, W, bH, 6);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 17px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Tel: +971 50 227 0824     |     Ajman - UAE     |     info@coolbox.ae     |     www.coolbox.ae", 620, bTop + 28);
+
+  return canvas;
+}
+
+function downloadServiceReportPng(data) {
+  if (!data) return;
+  const canvas = renderServiceReportCanvas(data);
+  const safeJob = String(data.jobNo || "receipt").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const filename = `CoolBox-Service-Report-${safeJob}.png`;
+  if (canvas.toBlob) {
+    canvas.toBlob((blob) => {
+      if (blob) downloadBlob(blob, filename);
+    }, "image/png");
+  } else {
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+
+function buildServiceReportPrintableHtml(data) {
+  const rowCount = 16;
+  const allocatedRows = [];
+  (data.lineItems || []).forEach((item, idx) => {
+    allocatedRows.push({
+      slNo: String(idx + 1),
+      description: item.description || "",
+      qty: item.qty || "",
+      remarks: item.remarks || "",
+    });
+  });
+  while (allocatedRows.length < rowCount) {
+    allocatedRows.push({ slNo: "", description: "", qty: "", remarks: "" });
+  }
+  const attendeeItems = String(data.attendeesText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const cb = (checked, label) => `<span class="cb-item"><span class="cb-box">${checked ? "&#10003;" : ""}</span><span>${escapeHtml(label)}</span></span>`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Service Report #${escapeHtml(data.jobNo)}</title>
+<style>
+  @page { size: A4 portrait; margin: 7mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { margin: 0; padding: 12px; font-family: Arial, Helvetica, sans-serif; background: #f1f5f9; color: #1e293b; }
+  .sheet { width: 196mm; min-height: 280mm; margin: 0 auto; background: #fff; padding: 6mm 7mm; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e2e8f0; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { border: none; width: 100%; min-height: 282mm; padding: 2mm 3mm; }
+  }
+  .hdr { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .logo-left { display: flex; align-items: stretch; gap: 4px; }
+  .logo-cool { background: #C8102E; color: #fff; font-weight: 900; font-size: 28px; letter-spacing: 0.5px; padding: 5px 10px; border-radius: 3px; line-height: 1; display: flex; align-items: center; }
+  .logo-box { background: #C8102E; color: #fff; font-weight: 900; font-size: 28px; padding: 5px 9px; border-radius: 3px; border: 2px solid #fff; outline: 2px solid #C8102E; line-height: 1; display: flex; align-items: center; }
+  .hdr-center { text-align: center; flex: 1; }
+  .hdr-ar { color: #C8102E; font-weight: 700; font-size: 14px; direction: rtl; margin-bottom: 2px; }
+  .hdr-en { color: #C8102E; font-weight: 800; font-size: 12.5px; letter-spacing: 0.4px; }
+  .hdr-right { border: 2.5px solid #C8102E; border-radius: 8px; padding: 2px; }
+  .hdr-right-in { border: 1px solid #C8102E; border-radius: 5px; padding: 2px 14px; color: #C8102E; font-weight: 800; font-size: 23px; direction: rtl; line-height: 1.15; }
+  .ribbon-wrap { text-align: center; margin: 5px 0 8px; }
+  .ribbon { display: inline-block; background: #C8102E; color: #fff; font-weight: 800; font-size: 13px; letter-spacing: 1.2px; padding: 3px 18px; border-radius: 4px; }
+  .meta-grid { display: grid; grid-template-columns: 1.85fr 1fr; gap: 5px 14px; font-size: 11.5px; margin-bottom: 7px; }
+  .meta-field { display: flex; align-items: baseline; gap: 6px; }
+  .meta-lbl { color: #9E1B24; font-weight: 700; white-space: nowrap; }
+  .meta-val { flex: 1; border-bottom: 1.3px dotted #B87A80; min-height: 16px; font-weight: 600; padding: 0 4px; color: #1E293B; }
+  .meta-jobno { border-bottom: none; color: #C8102E; font-weight: 800; font-size: 16px; font-family: 'Courier New', monospace; }
+  .grid4 { width: 100%; border-collapse: collapse; border: 1.6px solid #C8102E; margin-bottom: 6px; font-size: 11.5px; }
+  .grid4 th { background: #FADADD; color: #9E1B24; font-weight: 700; padding: 4px 6px; border: 1.2px solid #C8102E; }
+  .grid4 td { border: 1.2px solid #C8102E; padding: 6px 8px; vertical-align: top; }
+  .cb-col { display: flex; flex-direction: column; gap: 6px; }
+  .cb-item { display: flex; align-items: center; gap: 6px; color: #9E1B24; font-weight: 700; font-size: 11px; }
+  .cb-box { display: inline-flex; align-items: center; justify-content: center; width: 12px; height: 12px; border: 1.3px solid #9E1B24; color: #1E293B; font-weight: 900; font-size: 11px; flex-shrink: 0; }
+  .main-tbl { width: 100%; border-collapse: collapse; border: 1.6px solid #C8102E; margin-bottom: 6px; font-size: 11.5px; }
+  .main-tbl th { background: #FADADD; color: #9E1B24; font-weight: 700; padding: 5px 6px; border: 1.2px solid #C8102E; }
+  .main-tbl td { border-left: 1.2px solid #C8102E; border-right: 1.2px solid #C8102E; border-bottom: 1px dotted #B87A80; padding: 4px 7px; min-height: 22px; height: 24px; vertical-align: top; }
+  .main-tbl tr:last-child td { border-bottom: 1.6px solid #C8102E; }
+  .mat-box { border: 1.6px solid #C8102E; padding: 6px 9px; margin-bottom: 6px; min-height: 76px; font-size: 11.5px; }
+  .mat-hdr { color: #9E1B24; font-weight: 700; margin-bottom: 4px; }
+  .mat-lines { line-height: 20px; border-bottom: 1.2px dotted #B87A80; padding-bottom: 3px; min-height: 44px; }
+  .bot-tbl { width: 100%; border-collapse: collapse; border: 1.6px solid #C8102E; margin-bottom: 7px; font-size: 11px; }
+  .bot-tbl th { background: #FADADD; color: #9E1B24; font-weight: 700; padding: 4px 6px; border: 1.2px solid #C8102E; }
+  .bot-tbl td { border: 1.2px solid #C8102E; vertical-align: top; }
+  .fb-top { display: grid; grid-template-columns: 110px 1fr 140px; border-bottom: 1.2px solid #C8102E; }
+  .fb-top > div { padding: 7px 8px; }
+  .fb-top > div:not(:last-child) { border-right: 1.2px solid #C8102E; }
+  .fb-sign { display: flex; flex-direction: column; justify-content: flex-end; text-align: center; }
+  .fb-sign-line { border-top: 1.2px dotted #B87A80; padding-top: 3px; color: #9E1B24; font-weight: 700; }
+  .fb-comments { padding: 6px 8px; min-height: 60px; }
+  .att-cell { padding: 8px 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 158px; }
+  .att-names { font-weight: 600; font-size: 13px; line-height: 1.5; }
+  .footer-bar { background: #C8102E; color: #fff; font-weight: 700; font-size: 11px; padding: 6px 14px; border-radius: 4px; display: flex; justify-content: space-around; align-items: center; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div>
+    <div class="hdr">
+      <div class="logo-left">
+        <div class="logo-cool">COOL</div>
+        <div class="logo-box">BOX</div>
+      </div>
+      <div class="hdr-center">
+        <div class="hdr-ar">للأعمال الكهروميكانيكية ذ.م.م</div>
+        <div class="hdr-en">ELECTROMECHANICAL WORKS L.L.C</div>
+      </div>
+      <div class="hdr-right"><div class="hdr-right-in">كول بوكس</div></div>
+    </div>
+    <div class="ribbon-wrap"><span class="ribbon">SERVICE REPORT</span></div>
+
+    <div class="meta-grid">
+      <div class="meta-field"><span class="meta-lbl">Customer Name :</span><span class="meta-val">${escapeHtml(data.customerName)}</span></div>
+      <div class="meta-field"><span class="meta-lbl">Job No. :</span><span class="meta-val meta-jobno">${escapeHtml(data.jobNo)}</span></div>
+      <div class="meta-field"><span class="meta-lbl">Job Location :</span><span class="meta-val">${escapeHtml(data.jobLocation)}</span></div>
+      <div class="meta-field"><span class="meta-lbl">Job Date :</span><span class="meta-val">${escapeHtml(data.jobDate)}</span></div>
+      <div class="meta-field"><span class="meta-lbl">Completion Date :</span><span class="meta-val">${escapeHtml(data.completionDate)}</span></div>
+      <div class="meta-field"><span class="meta-lbl">Quotation :</span><span class="meta-val">${escapeHtml(data.quotation)}</span></div>
+    </div>
+
+    <table class="grid4">
+      <thead>
+        <tr>
+          <th style="width:14%">Job Code</th>
+          <th style="width:16%">Job Status</th>
+          <th style="width:44%">Equipment Details</th>
+          <th style="width:26%">Timing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="cb-col">${cb(data.jobCode === "AMC", "AMC")}${cb(data.jobCode === "Non AMC", "Non AMC")}${cb(data.jobCode === "Others", "Others")}</div></td>
+          <td><div class="cb-col">${cb(data.jobStatus === "Completed", "Completed")}${cb(data.jobStatus === "Pending", "Pending")}${cb(data.jobStatus === "Carry Over", "Carry Over")}</div></td>
+          <td>${escapeHtml(data.equipmentDetails)}</td>
+          <td>
+            <div class="meta-field" style="margin-bottom:10px;"><span class="meta-lbl">Start Time :</span><span class="meta-val">${escapeHtml(data.startTime)}</span></div>
+            <div class="meta-field"><span class="meta-lbl">End Time :</span><span class="meta-val">${escapeHtml(data.endTime)}</span></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="main-tbl">
+      <thead>
+        <tr>
+          <th style="width:7%">Sl.No.</th>
+          <th style="width:55%">Description</th>
+          <th style="width:8%">Qty</th>
+          <th style="width:30%">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${allocatedRows.map((r) => `
+          <tr>
+            <td style="text-align:center;font-weight:600;">${escapeHtml(r.slNo)}</td>
+            <td style="white-space:pre-wrap;">${escapeHtml(r.description)}</td>
+            <td style="text-align:center;font-weight:600;">${escapeHtml(r.qty)}</td>
+            <td style="white-space:pre-wrap;">${escapeHtml(r.remarks)}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>
+
+    <div class="mat-box">
+      <div class="mat-hdr">Materials :</div>
+      <div class="mat-lines">${escapeHtml(data.materials)}</div>
+    </div>
+
+    <table class="bot-tbl">
+      <thead>
+        <tr>
+          <th style="width:70%">Customer Feedback</th>
+          <th style="width:30%">Attendees</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:0;">
+            <div class="fb-top">
+              <div class="cb-col">${cb(data.feedbackRating === "Excellent", "Excellent")}${cb(data.feedbackRating === "Good", "Good")}${cb(data.feedbackRating === "Average", "Average")}${cb(data.feedbackRating === "Poor", "Poor")}</div>
+              <div>
+                <div class="meta-field" style="margin-bottom:16px;"><span class="meta-lbl">Customer Name :</span><span class="meta-val">${escapeHtml(data.feedbackCustomerName)}</span></div>
+                <div class="meta-field"><span class="meta-lbl">Date :</span><span class="meta-val">${escapeHtml(data.feedbackDate)}</span></div>
+              </div>
+              <div class="fb-sign"><div class="fb-sign-line">Customer Sign</div></div>
+            </div>
+            <div class="fb-comments">
+              <span class="meta-lbl">Customer Comments :</span>
+              <div style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(data.customerComments)}</div>
+            </div>
+          </td>
+          <td>
+            <div class="att-cell">
+              <div class="att-names">${attendeeItems.map((n) => `<div>${escapeHtml(n)}</div>`).join("")}</div>
+              <div class="fb-sign" style="margin-top:12px;">
+                <div style="font-style:italic;font-weight:700;font-size:12px;margin-bottom:2px;color:#334155;">${escapeHtml(data.leadSignature)}</div>
+                <div class="fb-sign-line">Signature</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer-bar">
+    <span>+971 50 227 0824</span>
+    <span>Ajman - UAE</span>
+    <span>info@coolbox.ae</span>
+    <span>www.coolbox.ae</span>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+function printServiceReportPdf(data) {
+  if (!data) return;
+  const html = buildServiceReportPrintableHtml(data);
+  const win = window.open("", "_blank", "width=920,height=1100");
+  if (!win) {
+    alert("Pop-up blocked. Please allow pop-ups or use 'Download PNG' / 'Download HTML' instead.");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    try { win.print(); } catch (e) { console.warn(e); }
+  }, 300);
+}
+
+function downloadServiceReportHtml(data) {
+  if (!data) return;
+  const html = buildServiceReportPrintableHtml(data);
+  const safeJob = String(data.jobNo || "receipt").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  downloadBlob(blob, `CoolBox-Service-Report-${safeJob}.html`);
+}
+
 function getSampleMarchJobsAndEntries(currentJobs = [], currentEntries = [], workers = []) {
   const nextJobs = [...currentJobs];
   const nextEntries = [...currentEntries];
@@ -2808,7 +3719,7 @@ function App() {
               await storageSet("amc-services", nextServices, true);
               showToast(`Generated ${newServices.length} scheduled visits for ${contract.clientName} on AMC Board!`);
             }}
-            onAddJob={addJobOrder} onUpdateJob={updateJobOrder} onWrapUpJob={(job, action) => setWrapUpTarget({ job, action })} onOpenDemo={() => setShowAppDemo(true)}
+            onAddJob={addJobOrder} onUpdateJob={updateJobOrder} onAddEntry={addEntry} onWrapUpJob={(job, action) => setWrapUpTarget({ job, action })} onOpenDemo={() => setShowAppDemo(true)}
             onAddWorker={addWorker} onAddVehicle={addVehicle} onUpdateWorker={updateWorker}
             onUpdateVehicle={updateVehicle} onAddCategory={addCategory}
             onAddCashEntry={addCashEntry} onAddTransfer={addTransfer}
@@ -2876,9 +3787,11 @@ function App() {
 /* ---------------------------------------------------------------------
    DISPATCH VIEW
 --------------------------------------------------------------------- */
-function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, amcServices = [], entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, onDeleteContract, onGenerateServicesForContract, onAddAmcService, onUpdateAmcService, onDeleteAmcService, onMoveAmcServiceToBoard, clockIn, clockOut, addAttendanceRecord, onLoadSampleData, onSaveServiceRecord, onDeleteServiceRecord }) {
+function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, amcServices = [], entries, cash, otherExpenses, attendance, onAddJob, onUpdateJob, onAddEntry, onWrapUpJob, onOpenDemo, onAddWorker, onAddVehicle, onUpdateWorker, onUpdateVehicle, onAddCategory, onAddCashEntry, onAddTransfer, onUpdateCashEntry, onDeleteCashEntry, onImportAttendanceRows, onAddOtherExpense, onDeleteOtherExpense, onUpdateAttendanceTargets, onDeleteAttendanceEntry, onAddContract, onUpdateContract, onDeleteContract, onGenerateServicesForContract, onAddAmcService, onUpdateAmcService, onDeleteAmcService, onMoveAmcServiceToBoard, clockIn, clockOut, addAttendanceRecord, onLoadSampleData, onSaveServiceRecord, onDeleteServiceRecord }) {
   const [tab, setTab] = useState("board");
   const [showNewJob, setShowNewJob] = useState(false);
+  const [detailsJobId, setDetailsJobId] = useState(null);
+  const [receiptJobId, setReceiptJobId] = useState(null);
   const [search, setSearch] = useState("");
   const importInputRef = useRef(null);
   const [importing, setImporting] = useState(false);
@@ -3035,7 +3948,7 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
             {sortedJobs.length === 0 && <EmptyState text={jobOrders.length === 0 ? "No job orders yet. Create one to assign workers and a vehicle." : "No job orders match these filters."} />}
             {sortedJobs.map((j) => (
-              <JobTicket key={j.id} job={j} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts} entries={entries} cash={cash} otherExpenses={otherExpenses.entries} onUpdateJob={onUpdateJob} onWrapUpJob={onWrapUpJob} />
+              <JobTicket key={j.id} job={j} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts} entries={entries} cash={cash} otherExpenses={otherExpenses.entries} onUpdateJob={onUpdateJob} onWrapUpJob={onWrapUpJob} onViewDetails={() => setDetailsJobId(j.id)} onDownloadReceipt={() => setReceiptJobId(j.id)} />
             ))}
           </div>
         </>
@@ -3141,6 +4054,50 @@ function DispatchView({ workers, vehicles, categories, jobOrders, amcContracts, 
           onClose={() => setShowNewJob(false)}
           onSubmit={(job) => { onAddJob(job); setShowNewJob(false); }} />
       )}
+
+      {detailsJobId && (() => {
+        const detailsJob = jobOrders.find((j) => j.id === detailsJobId);
+        if (!detailsJob) return null;
+        return (
+          <JobDetailsModal
+            job={detailsJob}
+            workers={workers}
+            vehicles={vehicles}
+            categories={categories}
+            jobOrders={jobOrders}
+            amcContracts={amcContracts}
+            amcServices={amcServices}
+            entries={entries}
+            attendance={attendance}
+            cash={cash}
+            otherExpenses={otherExpenses.entries}
+            onClose={() => setDetailsJobId(null)}
+            onUpdateJob={onUpdateJob}
+            onWrapUpJob={onWrapUpJob}
+            onAddEntry={onAddEntry}
+            onDownloadReceipt={() => setReceiptJobId(detailsJob.id)}
+          />
+        );
+      })()}
+
+      {receiptJobId && (() => {
+        const receiptJob = jobOrders.find((j) => j.id === receiptJobId);
+        if (!receiptJob) return null;
+        return (
+          <ServiceReportModal
+            job={receiptJob}
+            workers={workers}
+            vehicles={vehicles}
+            entries={entries}
+            attendance={attendance}
+            cash={cash}
+            otherExpenses={otherExpenses.entries}
+            amcServices={amcServices}
+            onUpdateJob={onUpdateJob}
+            onClose={() => setReceiptJobId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -3154,16 +4111,28 @@ function EmptyState({ text }) {
   );
 }
 
-function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, onUpdateJob, onWrapUpJob }) {
+function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts, entries, cash, otherExpenses, onUpdateJob, onWrapUpJob, onViewDetails, onDownloadReceipt }) {
   const [showEditCrew, setShowEditCrew] = useState(false);
   const assignedWorkers = workers.filter((w) => job.workerIds.includes(w.id));
   const { totalHours, vehicle, vehicleCost, totalCost, materialCost, otherCost, actualCost, targetCost, percentOfTarget, budgetStatus } = computeJobFinancials(job, vehicles, entries, cash.entries, otherExpenses);
+  const jobEntries = useMemo(() => {
+    const sr = job.jobOrderNo ? String(job.jobOrderNo).trim() : null;
+    return (entries || []).filter((e) => (e.jobId && e.jobId === job.id) || (sr && e.jobOrderNo && String(e.jobOrderNo).trim() === sr));
+  }, [entries, job.id, job.jobOrderNo]);
+  const latestWorkNote = job.workDone || jobEntries.find((e) => e.note && e.note.trim())?.note || "";
 
   return (
     <div className="ticket p-4">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="mono text-[11px] font-bold" style={{ color: COLORS.steel }}>#{job.jobOrderNo}</div>
+          <div className="mono text-[11px] font-bold flex items-center gap-1.5" style={{ color: COLORS.steel }}>
+            <span>#{job.jobOrderNo}</span>
+            {jobEntries.length > 0 && (
+              <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200" title="Logged crew check-ins / time entries">
+                {jobEntries.length} Login{jobEntries.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
           <div className="disp text-base font-bold leading-tight">{job.clientName}</div>
         </div>
         <PriorityStamp priority={job.priority} />
@@ -3180,7 +4149,16 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
         {job.assignedDate && job.assignedDate !== job.createdDate && <span> · Reassigned {job.assignedDate}</span>}
       </div>
 
-      <div className="text-[12.5px] mb-3 line-clamp-2" style={{ color: COLORS.ink }}>{job.scope}</div>
+      <div className="text-[12.5px] mb-2.5 line-clamp-2" style={{ color: COLORS.ink }}>{job.scope}</div>
+
+      {latestWorkNote && (
+        <div className="mb-3 px-2.5 py-1.5 rounded text-[11px] flex items-start gap-1.5" style={{ background: "#E4F1E9", color: "#22543D", border: "1px solid #C6E2D1" }}>
+          <Check size={12} className="mt-0.5 flex-shrink-0" color={COLORS.go} />
+          <div className="line-clamp-1">
+            <strong>Work Done:</strong> {latestWorkNote}
+          </div>
+        </div>
+      )}
 
       {/* CREW — dispatcher can correct who's assigned; this card only ever renders in Dispatch */}
       <div className="mb-3 p-2 rounded-md" style={{ background: COLORS.paper }}>
@@ -3273,31 +4251,63 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
         </div>
       )}
 
-      {job.status !== "Completed" && (
-        <div className="flex gap-2 mt-3">
-          {job.status === "Assigned" && (
-            <button onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
-              className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
-              Mark In Progress
+      <div className="mt-3 space-y-1.5">
+        {job.status !== "Completed" && (
+          <div className="flex gap-2">
+            {job.status === "Assigned" && (
+              <button onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
+                className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                Mark In Progress
+              </button>
+            )}
+            {job.status === "On Hold" ? (
+              <button onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
+                className="flex-1 text-[11px] font-bold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: COLORS.go, color: "#fff" }}>
+                <PlayCircle size={13} /> Resume Work
+              </button>
+            ) : (
+              <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "hold") : onUpdateJob(job.id, { status: "On Hold" })}
+                className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid #F59E0B" }}>
+                <PauseCircle size={13} /> Hold Work
+              </button>
+            )}
+            <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "complete") : onUpdateJob(job.id, { status: "Completed" })}
+              className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: COLORS.steel, color: "#fff" }}>
+              <Check size={13} /> Mark Completed
             </button>
-          )}
-          {job.status === "On Hold" ? (
-            <button onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
-              className="flex-1 text-[11px] font-bold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: COLORS.go, color: "#fff" }}>
-              <PlayCircle size={13} /> Resume Work
-            </button>
-          ) : (
-            <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "hold") : onUpdateJob(job.id, { status: "On Hold" })}
-              className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid #F59E0B" }}>
-              <PauseCircle size={13} /> Hold Work
-            </button>
-          )}
-          <button onClick={() => onWrapUpJob ? onWrapUpJob(job, "complete") : onUpdateJob(job.id, { status: "Completed" })}
-            className="flex-1 text-[11px] font-semibold py-1.5 rounded-md cursor-pointer flex items-center justify-center gap-1" style={{ background: COLORS.steel, color: "#fff" }}>
-            <Check size={13} /> Mark Completed
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+        {(onViewDetails || onDownloadReceipt) && (
+          <div className="flex gap-2">
+            {onViewDetails && (
+              <button
+                type="button"
+                onClick={() => onViewDetails(job)}
+                className="flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded-md cursor-pointer flex items-center justify-center gap-1.5 transition hover:brightness-95"
+                style={{ background: "#E7ECEF", color: COLORS.steelDark, border: `1.5px solid ${COLORS.steel}35` }}
+              >
+                <Eye size={13} color={COLORS.steel} />
+                <span>View Details</span>
+                <span className="mono text-[10px] px-1.5 py-0.2 rounded-full bg-white border" style={{ borderColor: COLORS.line, color: COLORS.steel }}>
+                  {jobEntries.length}
+                </span>
+              </button>
+            )}
+            {onDownloadReceipt && (
+              <button
+                type="button"
+                onClick={() => onDownloadReceipt(job)}
+                className="flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded-md cursor-pointer flex items-center justify-center gap-1.5 transition hover:brightness-95"
+                style={{ background: "#FFF1F2", color: "#9E1B24", border: "1.5px solid #F43F5E55" }}
+                title="Preview and download Cool Box Service Report receipt"
+              >
+                <Receipt size={13} color="#C8102E" />
+                <span>Receipt</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {showEditCrew && (
         <EditCrewModal job={job} workers={workers} vehicles={vehicles} categories={categories} jobOrders={jobOrders} amcContracts={amcContracts}
@@ -3311,6 +4321,1191 @@ function JobTicket({ job, workers, vehicles, categories, jobOrders, amcContracts
           }} />
       )}
     </div>
+  );
+}
+
+function JobDetailsModal({
+  job,
+  workers = [],
+  vehicles = [],
+  categories = [],
+  jobOrders = [],
+  amcContracts = [],
+  amcServices = [],
+  entries = [],
+  attendance = { entries: [] },
+  cash = { entries: [] },
+  otherExpenses = [],
+  onClose,
+  onUpdateJob,
+  onWrapUpJob,
+  onAddEntry,
+  onDownloadReceipt,
+}) {
+  const [showEditCrew, setShowEditCrew] = useState(false);
+  const [showEditWorkDone, setShowEditWorkDone] = useState(false);
+  const [workDoneDraft, setWorkDoneDraft] = useState(job.workDone || "");
+  const [remarksDraft, setRemarksDraft] = useState(job.remarks || "");
+  const [showAddLogin, setShowAddLogin] = useState(false);
+  const [loginWorkerId, setLoginWorkerId] = useState(job.workerIds?.[0] || workers.find((w) => w.active !== false)?.id || "");
+  const [loginDate, setLoginDate] = useState(todayISO());
+  const [loginTimeIn, setLoginTimeIn] = useState("08:00");
+  const [loginTimeOut, setLoginTimeOut] = useState("17:00");
+  const [loginNote, setLoginNote] = useState("");
+  const [showAllCrewShifts, setShowAllCrewShifts] = useState(false);
+
+  useEffect(() => {
+    setWorkDoneDraft(job.workDone || "");
+    setRemarksDraft(job.remarks || "");
+    setLoginWorkerId(job.workerIds?.[0] || workers.find((w) => w.active !== false)?.id || "");
+    setShowEditWorkDone(false);
+    setShowAddLogin(false);
+  }, [job.id, job.workDone, job.remarks]);
+
+  const {
+    laborCost, vehicle, roundTripKm, trips, travelDays, vehicleCost, totalCost,
+    materialCost, materialEntries, otherCost, otherExpenseEntries, actualCost,
+    targetCost, percentOfTarget, budgetStatus,
+  } = computeJobFinancials(job, vehicles, entries, cash?.entries, otherExpenses);
+
+  const contractMeta = getJobContractTypeMeta(job);
+  const assignedWorkers = workers.filter((w) => (job.workerIds || []).includes(w.id));
+
+  // All site check-ins / time entries matching this job
+  const jobEntries = useMemo(() => {
+    const sr = job.jobOrderNo ? String(job.jobOrderNo).trim() : null;
+    return (entries || [])
+      .filter((e) => (e.jobId && e.jobId === job.id) || (sr && e.jobOrderNo && String(e.jobOrderNo).trim() === sr))
+      .sort((a, b) => {
+        if ((b.date || "") !== (a.date || "")) return (b.date || "").localeCompare(a.date || "");
+        if ((b.timeIn || "") !== (a.timeIn || "")) return (b.timeIn || "").localeCompare(a.timeIn || "");
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+  }, [entries, job.id, job.jobOrderNo]);
+
+  const entriesHours = useMemo(() => jobEntries.reduce((s, e) => s + (Number(e.hours) || 0), 0), [jobEntries]);
+  const entriesLaborCost = useMemo(() => jobEntries.reduce((s, e) => s + (Number(e.cost) || 0), 0), [jobEntries]);
+
+  const allJobWorkerIds = useMemo(() => {
+    const set = new Set(job.workerIds || []);
+    jobEntries.forEach((e) => { if (e.workerId) set.add(e.workerId); });
+    return Array.from(set);
+  }, [job.workerIds, jobEntries]);
+
+  const relevantDates = useMemo(() => {
+    const s = new Set();
+    jobEntries.forEach((e) => { if (e.date) s.add(e.date); });
+    if (job.createdDate) s.add(job.createdDate);
+    if (job.assignedDate) s.add(job.assignedDate);
+    if (job.completedAt) s.add(job.completedAt);
+    if (job.onHoldAt) s.add(job.onHoldAt);
+    if (job.status !== "Completed") s.add(todayISO());
+    return s;
+  }, [jobEntries, job.createdDate, job.assignedDate, job.completedAt, job.onHoldAt, job.status]);
+
+  const totalCrewShiftCount = useMemo(() => {
+    const wSet = new Set(allJobWorkerIds);
+    return (attendance?.entries || []).filter((att) => wSet.has(att.workerId)).length;
+  }, [attendance, allJobWorkerIds]);
+
+  const crewShiftLogins = useMemo(() => {
+    const wSet = new Set(allJobWorkerIds);
+    return (attendance?.entries || [])
+      .filter((att) => wSet.has(att.workerId))
+      .filter((att) => showAllCrewShifts || relevantDates.has(att.clockInDate) || att.status === "open")
+      .sort((a, b) => {
+        if ((b.clockInDate || "") !== (a.clockInDate || "")) return (b.clockInDate || "").localeCompare(a.clockInDate || "");
+        return (b.clockInTime || "").localeCompare(a.clockInTime || "");
+      });
+  }, [attendance, allJobWorkerIds, relevantDates, showAllCrewShifts]);
+
+  const linkedAmcService = useMemo(() => {
+    return (amcServices || []).find((s) => (job.amcServiceId && s.id === job.amcServiceId) || s.dispatchedJobId === job.id) || null;
+  }, [amcServices, job.amcServiceId, job.id]);
+
+  const workDoneNotesFromEntries = useMemo(() => {
+    return jobEntries.filter((e) => e.note && e.note.trim());
+  }, [jobEntries]);
+
+  const handleSaveWorkDone = () => {
+    onUpdateJob(job.id, {
+      workDone: workDoneDraft.trim(),
+      remarks: remarksDraft.trim(),
+    });
+    setShowEditWorkDone(false);
+  };
+
+  const handleQuickAddLogin = () => {
+    if (!onAddEntry) return;
+    const w = workers.find((x) => x.id === loginWorkerId);
+    if (!w) { alert("Please select a technician / worker."); return; }
+    const hrs = hoursBetween(loginTimeIn, loginTimeOut);
+    if (hrs <= 0) { alert("Logout / Time Out must be after Login / Time In."); return; }
+    const days = hrs / 8;
+    const catCode = w.category || "T";
+    const catObj = (categories || []).find((c) => c.code === catCode);
+    const rate = catObj ? catObj.rate : (w.rate || 150);
+    onAddEntry({
+      id: genId("e"),
+      jobId: job.id,
+      jobOrderNo: job.jobOrderNo,
+      workerId: w.id,
+      workerName: w.name,
+      category: catCode,
+      date: loginDate || todayISO(),
+      timeIn: loginTimeIn,
+      timeOut: loginTimeOut,
+      hours: hrs,
+      days,
+      cost: rate * days,
+      note: loginNote.trim(),
+      createdAt: Date.now(),
+    });
+    setLoginNote("");
+    setShowAddLogin(false);
+  };
+
+  return (
+    <>
+      <DraggableModal backdrop="rgba(20,25,20,0.55)">
+        {(onDragStart) => (
+          <div className="w-full max-w-4xl rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }}>
+            {/* HEADER */}
+            <div className="px-5 py-4 flex items-center justify-between gap-3 flex-shrink-0" style={{ background: COLORS.steelDark, cursor: "grab" }} onMouseDown={onDragStart}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: COLORS.safety }}>
+                  <Eye size={18} color={COLORS.steelDark} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="mono text-xs font-extrabold px-2 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.12)", color: COLORS.safety }}>
+                      #{job.jobOrderNo}
+                    </span>
+                    <StatusPill status={job.status} />
+                    <PriorityStamp priority={job.priority} size="sm" />
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: contractMeta.bg, color: contractMeta.color }}>
+                      {contractMeta.label}{contractMeta.code === "amc" && job.amcRefNo ? ` · ${job.amcRefNo}` : ""}
+                    </span>
+                  </div>
+                  <div className="disp text-white font-bold text-lg tracking-wide truncate mt-0.5">
+                    {job.clientName}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0" onMouseDown={(e) => e.stopPropagation()}>
+                {onDownloadReceipt && (
+                  <button
+                    type="button"
+                    onClick={() => onDownloadReceipt(job)}
+                    className="disp text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 cursor-pointer shadow-xs"
+                    style={{ background: "#C8102E", color: "#fff" }}
+                    title="Preview & download Cool Box Service Report receipt"
+                  >
+                    <Receipt size={13} /> SERVICE RECEIPT
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowEditCrew(true)}
+                  className="disp text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 cursor-pointer"
+                  style={{ background: "rgba(255,255,255,0.14)", color: "#fff" }}
+                >
+                  <Settings2 size={13} /> EDIT JOB
+                </button>
+                <button type="button" onClick={onClose} className="p-1 rounded hover:bg-white/10 cursor-pointer">
+                  <X size={20} color="#fff" />
+                </button>
+              </div>
+            </div>
+
+            {/* BODY */}
+            <div className="p-5 overflow-y-auto space-y-4">
+              {/* TOP KPI STRIP */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Total Logins</div>
+                  <div className="disp text-xl font-bold" style={{ color: COLORS.steel }}>
+                    {jobEntries.length} <span className="text-xs font-normal text-slate-500">job · {crewShiftLogins.length} shift</span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Hours Logged</div>
+                  <div className="disp text-xl font-bold" style={{ color: COLORS.steel }}>
+                    {entriesHours.toFixed(2)} <span className="text-xs font-normal text-slate-500">hrs · {travelDays} day(s)</span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Timeline</div>
+                  <div className="text-xs font-semibold mt-1" style={{ color: COLORS.ink }}>
+                    Created: <span className="mono">{job.createdDate || "—"}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mono">
+                    {job.completedAt ? `Completed: ${job.completedAt}` : job.onHoldAt ? `On Hold: ${job.onHoldAt}` : `Assigned: ${job.assignedDate || "—"}`}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#8A8F84" }}>Actual Cost</div>
+                  <div className="disp text-xl font-bold" style={{ color: COLORS.steelDark }}>
+                    {fmtMoney(actualCost)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mono">
+                    Labor {fmtMoney(laborCost)} + Veh {fmtMoney(vehicleCost)}
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. JOB INFORMATION & ASSIGNED SCOPE */}
+              <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5" style={{ color: COLORS.steel }}>
+                    <Briefcase size={15} /> JOB INFORMATION &amp; ASSIGNED SCOPE
+                  </div>
+                  {linkedAmcService && (
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      AMC Cycle: {linkedAmcService.targetMonth} · {linkedAmcService.serviceType} ({linkedAmcService.indoorUnits || 0} In / {linkedAmcService.outdoorUnits || 0} Out)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3 pb-3 border-b" style={{ borderColor: COLORS.line }}>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Location</div>
+                    <div className="font-semibold flex items-center gap-1 mt-0.5"><MapPin size={12} color={COLORS.steel} /> {job.area || "—"}, {job.emirates || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Project # / Quote Ref</div>
+                    <div className="mono font-semibold mt-0.5">{job.projectNo || "—"} · {job.quotationRef || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Est. Duration</div>
+                    <div className="font-semibold mt-0.5">{job.estimatedDays || 1} Day{Number(job.estimatedDays) > 1 ? "s" : ""}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Invoice</div>
+                    <div className="font-semibold mt-0.5">
+                      {job.invoiceStatus || "Not Invoiced"}
+                      {job.invoiceNumber ? ` · ${job.invoiceNumber}` : ""}
+                      {job.invoiceAmount ? ` (${fmtMoney(Number(job.invoiceAmount))})` : ""}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: COLORS.steelLight }}>Assigned Scope of Work</div>
+                  <div className="p-2.5 rounded-md text-xs whitespace-pre-wrap" style={{ background: COLORS.paper, color: COLORS.ink, border: `1px solid ${COLORS.line}` }}>
+                    {job.scope || "No scope specified."}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. WORK DONE SUMMARY & NOTES */}
+              <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5" style={{ color: COLORS.steel }}>
+                    <Check size={16} color={COLORS.go} /> WORK DONE SUMMARY &amp; FIELD REMARKS
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditWorkDone((v) => !v)}
+                    className="text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer"
+                    style={{ background: COLORS.paperDark, color: COLORS.steel }}
+                  >
+                    <Edit size={12} /> {showEditWorkDone ? "Cancel Edit" : (job.workDone || job.remarks ? "Edit Work Done / Remarks" : "+ Add Work Done Summary")}
+                  </button>
+                </div>
+
+                {job.status === "On Hold" && (
+                  <div className="mb-3 p-2.5 rounded-md text-xs font-semibold flex items-center gap-2" style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #F59E0B" }}>
+                    <PauseCircle size={15} color="#D97706" />
+                    <span><strong>ON HOLD REASON{job.onHoldAt ? ` (${job.onHoldAt})` : ""}:</strong> {job.onHoldReason || "Work paused"}</span>
+                  </div>
+                )}
+
+                {showEditWorkDone ? (
+                  <div className="space-y-2.5 p-3 rounded-lg mb-3" style={{ background: COLORS.paper, border: `1.5px solid ${COLORS.steel}40` }}>
+                    <Field label="Work Done Summary (Overall Report)">
+                      <textarea
+                        className={inputCls}
+                        style={{ ...inputStyle, minHeight: 72 }}
+                        value={workDoneDraft}
+                        onChange={(e) => setWorkDoneDraft(e.target.value)}
+                        placeholder="Describe work completed, parts installed, testing performed, client handover..."
+                      />
+                    </Field>
+                    <Field label="Dispatcher / Field Remarks">
+                      <input
+                        className={inputCls}
+                        style={inputStyle}
+                        value={remarksDraft}
+                        onChange={(e) => setRemarksDraft(e.target.value)}
+                        placeholder="Additional operational notes or follow-up actions..."
+                      />
+                    </Field>
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => setShowEditWorkDone(false)} className="px-3 py-1.5 rounded text-xs font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={handleSaveWorkDone} className="disp px-4 py-1.5 rounded text-xs font-bold tracking-wide cursor-pointer flex items-center gap-1" style={{ background: COLORS.go, color: "#fff" }}>
+                        <Check size={13} /> SAVE WORK DONE
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-3">
+                    <div className="p-3 rounded-md text-xs whitespace-pre-wrap" style={{ background: job.workDone ? "#E4F1E9" : COLORS.paper, border: `1px solid ${job.workDone ? "#B7DFC7" : COLORS.line}`, color: COLORS.ink }}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: job.workDone ? COLORS.go : "#8A8F84" }}>
+                        Overall Work Done Summary
+                      </div>
+                      {job.workDone || (workDoneNotesFromEntries.length > 0
+                        ? "See individual technician work done entries recorded below."
+                        : "No overall work done summary logged yet.")}
+                    </div>
+                    {job.remarks && (
+                      <div className="p-2.5 rounded-md text-xs" style={{ background: COLORS.paper, border: `1px solid ${COLORS.line}` }}>
+                        <strong className="text-[10px] uppercase tracking-wider text-slate-500 mr-1.5">Remarks:</strong>
+                        {job.remarks}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {workDoneNotesFromEntries.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.steelLight }}>
+                      Compiled Field Work Done from Crew Logs ({workDoneNotesFromEntries.length})
+                    </div>
+                    <div className="space-y-1.5">
+                      {workDoneNotesFromEntries.map((e) => (
+                        <div key={`wd_${e.id}`} className="flex items-start gap-2 text-xs p-2 rounded bg-slate-50 border border-slate-200">
+                          <span className="mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200 flex-shrink-0" style={{ color: COLORS.steel }}>
+                            {e.date}
+                          </span>
+                          <div className="flex-1">
+                            <span className="font-bold text-slate-800">{e.workerName}</span>
+                            <span className="text-slate-400 mx-1.5">·</span>
+                            <span className="mono text-[11px] text-slate-500">
+                              {e.timeIn ? formatTime12h(e.timeIn) : "—"} → {e.timeOut ? formatTime12h(e.timeOut) : "—"}
+                            </span>
+                            <div className="text-slate-700 mt-0.5">{e.note}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. ALL JOB LOGINS & WORK DONE ENTRIES */}
+              <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5" style={{ color: COLORS.steel }}>
+                    <Clock size={16} /> ALL JOB LOGINS &amp; WORK DONE LOGS ({jobEntries.length})
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="mono text-xs font-semibold px-2 py-0.5 rounded" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                      {entriesHours.toFixed(2)} hrs · {fmtMoney(entriesLaborCost)}
+                    </span>
+                    {onAddEntry && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddLogin((v) => !v)}
+                        className="disp text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer"
+                        style={{ background: COLORS.safety, color: COLORS.steelDark }}
+                      >
+                        <Plus size={13} /> {showAddLogin ? "Close Form" : "Log Crew Login & Work Done"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {showAddLogin && onAddEntry && (
+                  <div className="p-3 rounded-lg mb-3 space-y-2.5" style={{ background: COLORS.paper, border: `1.5px solid ${COLORS.safety}` }}>
+                    <div className="text-xs font-bold uppercase tracking-wide" style={{ color: COLORS.steel }}>
+                      Record Technician Login &amp; Work Done on Job #{job.jobOrderNo}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Worker</label>
+                        <select className={inputCls} style={inputStyle} value={loginWorkerId} onChange={(e) => setLoginWorkerId(e.target.value)}>
+                          <option value="">-- Select --</option>
+                          {workers.filter((w) => w.active !== false || allJobWorkerIds.includes(w.id)).map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.name} {(job.workerIds || []).includes(w.id) ? "(Assigned)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Date</label>
+                        <input type="date" className={inputCls} style={inputStyle} value={loginDate} onChange={(e) => setLoginDate(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Login (Time In)</label>
+                        <input type="time" className={inputCls} style={inputStyle} value={loginTimeIn} onChange={(e) => setLoginTimeIn(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Logout (Time Out)</label>
+                        <input type="time" className={inputCls} style={inputStyle} value={loginTimeOut} onChange={(e) => setLoginTimeOut(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Work Done / Notes</label>
+                      <input
+                        type="text"
+                        className={inputCls}
+                        style={inputStyle}
+                        value={loginNote}
+                        onChange={(e) => setLoginNote(e.target.value)}
+                        placeholder="Describe tasks performed during this session..."
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => setShowAddLogin(false)} className="px-3 py-1 rounded text-xs font-semibold cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={handleQuickAddLogin} className="disp px-4 py-1 rounded text-xs font-bold cursor-pointer flex items-center gap-1" style={{ background: COLORS.steel, color: "#fff" }}>
+                        <Check size={13} /> SAVE LOGIN &amp; WORK DONE
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {jobEntries.length === 0 ? (
+                  <div className="text-center py-6 rounded-md text-xs" style={{ background: COLORS.paper, color: "#8A8F84", border: `1px dashed ${COLORS.line}` }}>
+                    No job login sessions or work done logs have been recorded for this job order yet.
+                  </div>
+                ) : (
+                  <div className="rounded-lg overflow-hidden border" style={{ borderColor: COLORS.line }}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr style={{ background: COLORS.steelDark, color: "#fff" }} className="disp tracking-wide">
+                            {["Date", "Crew Member", "Login (In)", "Logout (Out)", "Hours", "Work Done / Task Note", "Cost"].map((h) => (
+                              <th key={h} className="text-left px-3 py-2 font-semibold whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {jobEntries.map((e, idx) => (
+                            <tr key={e.id} style={{ background: idx % 2 ? "#fff" : COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
+                              <td className="px-3 py-2 mono whitespace-nowrap font-medium">{e.date}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <span className="font-semibold">{e.workerName || "—"}</span>
+                                {job.teamLeadId === e.workerId && (
+                                  <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded" style={{ background: COLORS.safety, color: COLORS.steelDark }}>LEAD</span>
+                                )}
+                                <span className="ml-1 text-[10px] mono text-slate-400">({e.category || "T"})</span>
+                              </td>
+                              <td className="px-3 py-2 mono whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                                  <LogIn size={11} /> {e.timeIn ? formatTime12h(e.timeIn) : "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 mono whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 text-slate-700 font-semibold">
+                                  <LogOut size={11} /> {e.timeOut ? formatTime12h(e.timeOut) : "—"}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 mono whitespace-nowrap font-semibold">
+                                {Number(e.hours || 0).toFixed(2)}h
+                              </td>
+                              <td className="px-3 py-2 text-xs text-slate-800 min-w-[200px]">
+                                {e.note || e.scope || <span className="text-slate-400 italic">No task note</span>}
+                              </td>
+                              <td className="px-3 py-2 mono font-semibold whitespace-nowrap">{fmtMoney(e.cost || 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. CREW SHIFT ATTENDANCE & CLOCK-INS */}
+              <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5" style={{ color: COLORS.steel }}>
+                    <Users size={16} /> ASSIGNED CREW &amp; SHIFT LOGINS (CLOCK-IN / OUT)
+                  </div>
+                  {totalCrewShiftCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllCrewShifts((v) => !v)}
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded border cursor-pointer"
+                      style={{ background: COLORS.paper, borderColor: COLORS.line, color: COLORS.steel }}
+                    >
+                      {showAllCrewShifts ? `Show Job Dates Only` : `Show All Crew Shift History (${totalCrewShiftCount})`}
+                    </button>
+                  )}
+                </div>
+
+                {/* Crew Summary Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                  {assignedWorkers.length === 0 && (
+                    <div className="col-span-full text-xs text-slate-500">No crew assigned to this job order yet.</div>
+                  )}
+                  {assignedWorkers.map((w) => {
+                    const workerEntries = jobEntries.filter((e) => e.workerId === w.id);
+                    const workerHrs = workerEntries.reduce((s, e) => s + (Number(e.hours) || 0), 0);
+                    const openShift = (attendance?.entries || []).find((a) => a.workerId === w.id && a.status === "open");
+                    const statusMeta = availabilityMeta(computeWorkerStatus(w, jobOrders));
+                    return (
+                      <div key={w.id} className="p-2.5 rounded-md border flex items-center justify-between gap-2" style={{ background: COLORS.paper, borderColor: COLORS.line }}>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusMeta.color }} />
+                            <span className="font-bold text-xs truncate">{w.name}</span>
+                            {job.teamLeadId === w.id && (
+                              <span className="text-[9px] font-bold px-1 rounded" style={{ background: COLORS.safety, color: COLORS.steelDark }}>LEAD</span>
+                            )}
+                          </div>
+                          <div className="text-[10.5px] text-slate-500 mt-0.5">
+                            {catLabel(categories, w.category)} · {workerEntries.length} job log(s) ({workerHrs.toFixed(1)}h)
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          {openShift ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                              <LogIn size={10} /> In {formatTime12h(openShift.clockInTime)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                              {statusMeta.id}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Shift Attendance Table */}
+                {crewShiftLogins.length === 0 ? (
+                  <div className="text-xs text-slate-500 p-2.5 rounded bg-slate-50 border border-slate-200">
+                    No shift clock-in attendance records found for the assigned crew on this job's dates.
+                  </div>
+                ) : (
+                  <div className="rounded-lg overflow-hidden border" style={{ borderColor: COLORS.line }}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr style={{ background: "#334155", color: "#fff" }} className="disp tracking-wide">
+                            {["Worker", "Shift Login Date", "Login Time", "Shift Logout", "Shift Hours", "Status"].map((h) => (
+                              <th key={h} className="text-left px-3 py-1.5 font-semibold whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {crewShiftLogins.map((att, idx) => (
+                            <tr key={att.id} style={{ background: idx % 2 ? "#fff" : COLORS.paper, borderTop: `1px solid ${COLORS.line}` }}>
+                              <td className="px-3 py-1.5 font-semibold">{att.workerName || workers.find((w) => w.id === att.workerId)?.name || "Staff"}</td>
+                              <td className="px-3 py-1.5 mono">{att.clockInDate}</td>
+                              <td className="px-3 py-1.5 mono text-emerald-700 font-semibold">{formatTime12h(att.clockInTime)}</td>
+                              <td className="px-3 py-1.5 mono">
+                                {att.clockOutTime ? `${att.clockOutDate && att.clockOutDate !== att.clockInDate ? att.clockOutDate + " · " : ""}${formatTime12h(att.clockOutTime)}` : "—"}
+                              </td>
+                              <td className="px-3 py-1.5 mono">{att.hours != null ? `${Number(att.hours).toFixed(2)}h` : "Running"}</td>
+                              <td className="px-3 py-1.5">
+                                {att.status === "open" ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Active / Logged In</span>
+                                ) : (
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Clocked Out</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. VEHICLE, MATERIALS & BUDGET SUMMARY */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5 mb-2" style={{ color: COLORS.steel }}>
+                    <Truck size={15} /> VEHICLE &amp; TRAVEL
+                  </div>
+                  {vehicle ? (
+                    <div className="text-xs space-y-1">
+                      <div className="font-bold text-sm">{vehicle.name} <span className="mono text-[11px] font-normal text-slate-500">({fmtMoney(vehicle.ratePerKm)}/km)</span></div>
+                      <div className="text-slate-600">
+                        One-Way: <span className="mono font-semibold">{job.avgOneWayKm || 0} km</span> · Round Trip: <span className="mono font-semibold">{roundTripKm} km</span> · Trips: <span className="mono font-semibold">{trips}</span>
+                      </div>
+                      <div className="font-bold pt-1" style={{ color: COLORS.steelDark }}>
+                        Vehicle Cost: <span className="mono">{fmtMoney(vehicleCost)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-500">No vehicle assigned to this job order.</div>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-lg bg-white border shadow-xs" style={{ borderColor: COLORS.line }}>
+                  <div className="disp font-bold text-sm tracking-wide flex items-center gap-1.5 mb-2" style={{ color: COLORS.steel }}>
+                    <Wallet size={15} /> BUDGET &amp; EXPENSES
+                  </div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between"><span>Labor Cost:</span><span className="mono font-semibold">{fmtMoney(laborCost)}</span></div>
+                    <div className="flex justify-between"><span>Vehicle Cost:</span><span className="mono font-semibold">{fmtMoney(vehicleCost)}</span></div>
+                    <div className="flex justify-between"><span>Materials (Petty Cash · {materialEntries.length}):</span><span className="mono font-semibold">{fmtMoney(materialCost)}</span></div>
+                    <div className="flex justify-between"><span>Other Expenses ({otherExpenseEntries.length}):</span><span className="mono font-semibold">{fmtMoney(otherCost)}</span></div>
+                    <div className="flex justify-between pt-1.5 border-t font-bold" style={{ borderColor: COLORS.line, color: COLORS.steelDark }}>
+                      <span>Total Actual Cost:</span><span className="mono">{fmtMoney(actualCost)}</span>
+                    </div>
+                    {targetCost > 0 && (
+                      <div className="flex justify-between text-[11px]" style={{ color: BUDGET_STATUS_META[budgetStatus].color }}>
+                        <span>Target Ceiling ({BUDGET_STATUS_META[budgetStatus].label}):</span>
+                        <span className="mono font-bold">{fmtMoney(targetCost)} ({percentOfTarget.toFixed(0)}%)</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FOOTER */}
+            <div className="px-5 py-3 bg-white border-t flex flex-wrap items-center justify-between gap-2 flex-shrink-0" style={{ borderColor: COLORS.line }}>
+              <div className="flex flex-wrap items-center gap-2">
+                {job.status !== "Completed" && (
+                  <>
+                    {job.status === "Assigned" && (
+                      <button type="button" onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-md cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                        Mark In Progress
+                      </button>
+                    )}
+                    {job.status === "On Hold" ? (
+                      <button type="button" onClick={() => onUpdateJob(job.id, { status: "In Progress" })}
+                        className="text-xs font-bold px-3 py-1.5 rounded-md cursor-pointer flex items-center gap-1" style={{ background: COLORS.go, color: "#fff" }}>
+                        <PlayCircle size={13} /> Resume Work
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => { onClose(); if (onWrapUpJob) onWrapUpJob(job, "hold"); else onUpdateJob(job.id, { status: "On Hold" }); }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-md cursor-pointer flex items-center gap-1" style={{ background: "#FEF3C7", color: "#D97706", border: "1px solid #F59E0B" }}>
+                        <PauseCircle size={13} /> Hold Work
+                      </button>
+                    )}
+                    <button type="button" onClick={() => { onClose(); if (onWrapUpJob) onWrapUpJob(job, "complete"); else onUpdateJob(job.id, { status: "Completed" }); }}
+                      className="text-xs font-bold px-3 py-1.5 rounded-md cursor-pointer flex items-center gap-1" style={{ background: COLORS.go, color: "#fff" }}>
+                      <Check size={13} /> Mark Completed
+                    </button>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="disp px-5 py-1.5 rounded-md text-xs font-bold tracking-wider uppercase cursor-pointer"
+                style={{ background: COLORS.steel, color: "#fff" }}
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        )}
+      </DraggableModal>
+
+      {showEditCrew && (
+        <EditCrewModal
+          job={job}
+          workers={workers}
+          vehicles={vehicles}
+          categories={categories}
+          jobOrders={jobOrders}
+          amcContracts={amcContracts}
+          onClose={() => setShowEditCrew(false)}
+          onSave={(patch) => {
+            let finalStatus = patch.status || job.status;
+            if (patch.workerIds && patch.workerIds.length === 0) finalStatus = "Pending Allocation";
+            if (patch.workerIds && patch.workerIds.length > 0 && finalStatus === "Pending Allocation") finalStatus = "Assigned";
+            onUpdateJob(job.id, { ...patch, status: finalStatus });
+            setShowEditCrew(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function ServiceReportModal({
+  job,
+  workers = [],
+  vehicles = [],
+  entries = [],
+  attendance = { entries: [] },
+  cash = { entries: [] },
+  otherExpenses = [],
+  amcServices = [],
+  onUpdateJob,
+  onClose,
+}) {
+  const [report, setReport] = useState(() =>
+    buildServiceReportData(job, workers, vehicles, entries, attendance, cash, otherExpenses, amcServices)
+  );
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    setReport(buildServiceReportData(job, workers, vehicles, entries, attendance, cash, otherExpenses, amcServices));
+  }, [job.id]);
+
+  if (!report) return null;
+
+  const updateField = (k, v) => setReport((prev) => ({ ...prev, [k]: v }));
+  const updateItem = (idx, k, v) =>
+    setReport((prev) => {
+      const nextItems = [...(prev.lineItems || [])];
+      nextItems[idx] = { ...nextItems[idx], [k]: v };
+      return { ...prev, lineItems: nextItems };
+    });
+  const addLineItem = () =>
+    setReport((prev) => ({
+      ...prev,
+      lineItems: [...(prev.lineItems || []), { description: "", qty: "", remarks: "" }],
+    }));
+  const removeLineItem = (idx) =>
+    setReport((prev) => ({
+      ...prev,
+      lineItems: (prev.lineItems || []).filter((_, i) => i !== idx),
+    }));
+
+  const handleSaveToJob = () => {
+    if (!onUpdateJob) return;
+    onUpdateJob(job.id, {
+      equipmentDetails: report.equipmentDetails,
+      receiptMaterials: report.materials,
+      customerFeedback: report.feedbackRating,
+      feedbackCustomerName: report.feedbackCustomerName,
+      feedbackDate: report.feedbackDate,
+      customerComments: report.customerComments,
+      receiptLineItems: report.lineItems,
+      receiptAttendees: String(report.attendeesText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
+    });
+    setEditMode(false);
+  };
+
+  const visualRowCount = Math.max(16, (report.lineItems || []).length);
+  const displayRows = [];
+  for (let i = 0; i < visualRowCount; i++) {
+    const it = (report.lineItems || [])[i];
+    displayRows.push(it ? { slNo: String(i + 1), ...it } : { slNo: "", description: "", qty: "", remarks: "" });
+  }
+  const attendeeList = String(report.attendeesText || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+
+  const PreviewCheckbox = ({ checked, label, onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-left cursor-pointer hover:opacity-80"
+      style={{ color: "#9E1B24", fontWeight: 700, fontSize: "11px" }}
+      title={onClick ? `Toggle ${label}` : undefined}
+    >
+      <span
+        className="inline-flex items-center justify-center flex-shrink-0"
+        style={{
+          width: 13,
+          height: 13,
+          border: "1.5px solid #9E1B24",
+          background: "#fff",
+          color: "#1E293B",
+          fontSize: 11,
+          fontWeight: 900,
+          lineHeight: 1,
+        }}
+      >
+        {checked ? "✓" : ""}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+
+  return (
+    <DraggableModal backdrop="rgba(20,25,20,0.6)">
+      {(onDragStart) => (
+        <div className="w-full max-w-4xl rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[94vh]" style={{ background: COLORS.paper, fontFamily: "'Inter',sans-serif" }}>
+          {/* TOP MODAL BAR */}
+          <div className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 flex-shrink-0" style={{ background: COLORS.steelDark, cursor: "grab" }} onMouseDown={onDragStart}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#C8102E" }}>
+                <Receipt size={16} color="#fff" />
+              </div>
+              <div>
+                <div className="disp text-white font-bold text-base tracking-wide">
+                  SERVICE REPORT RECEIPT — #{report.jobNo}
+                </div>
+                <div className="text-[10.5px] text-white/60">
+                  Cool Box Format · Click checkboxes directly on preview or edit fields before downloading
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5" onMouseDown={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setEditMode((v) => !v)}
+                className="disp text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 cursor-pointer"
+                style={{ background: editMode ? COLORS.safety : "rgba(255,255,255,0.14)", color: editMode ? COLORS.steelDark : "#fff" }}
+              >
+                <Edit size={13} /> {editMode ? "HIDE EDITOR" : "EDIT FIELDS"}
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadServiceReportPng(report)}
+                className="disp text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 cursor-pointer shadow-sm"
+                style={{ background: "#C8102E", color: "#fff" }}
+                title="Download high-resolution PNG image receipt"
+              >
+                <Download size={13} /> DOWNLOAD PNG
+              </button>
+              <button
+                type="button"
+                onClick={() => printServiceReportPdf(report)}
+                className="disp text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 cursor-pointer shadow-sm"
+                style={{ background: COLORS.safety, color: COLORS.steelDark }}
+                title="Print or Save A4 PDF receipt"
+              >
+                <Printer size={13} /> PRINT / SAVE PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadServiceReportHtml(report)}
+                className="disp text-xs font-bold px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer"
+                style={{ background: "rgba(255,255,255,0.14)", color: "#fff" }}
+                title="Download standalone HTML receipt"
+              >
+                <FileText size={13} /> .HTML
+              </button>
+              <button type="button" onClick={onClose} className="p-1 ml-1 rounded hover:bg-white/10 cursor-pointer">
+                <X size={18} color="#fff" />
+              </button>
+            </div>
+          </div>
+
+          {/* BODY: EDITOR (OPTIONAL) + PAPER PREVIEW */}
+          <div className="p-4 overflow-y-auto space-y-4 flex-1" style={{ background: "#E5E7EB" }}>
+            {editMode && (
+              <div className="p-4 rounded-xl bg-white border shadow-sm space-y-3" style={{ borderColor: COLORS.line }}>
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b" style={{ borderColor: COLORS.line }}>
+                  <div className="disp text-sm font-bold tracking-wide" style={{ color: COLORS.steel }}>
+                    CUSTOMIZE RECEIPT FIELDS
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReport(buildServiceReportData(job, workers, vehicles, entries, attendance, cash, otherExpenses, amcServices))}
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded border cursor-pointer"
+                      style={{ background: COLORS.paper, borderColor: COLORS.line, color: COLORS.steel }}
+                    >
+                      Reset from Job Data
+                    </button>
+                    {onUpdateJob && (
+                      <button
+                        type="button"
+                        onClick={handleSaveToJob}
+                        className="disp text-xs font-bold px-3 py-1 rounded flex items-center gap-1 cursor-pointer"
+                        style={{ background: COLORS.go, color: "#fff" }}
+                      >
+                        <Check size={13} /> SAVE TO JOB
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <Field label="Customer Name"><input className={inputCls} style={inputStyle} value={report.customerName} onChange={(e) => updateField("customerName", e.target.value)} /></Field>
+                  <Field label="Job Location"><input className={inputCls} style={inputStyle} value={report.jobLocation} onChange={(e) => updateField("jobLocation", e.target.value)} /></Field>
+                  <Field label="Job No."><input className={inputCls} style={inputStyle} value={report.jobNo} onChange={(e) => updateField("jobNo", e.target.value)} /></Field>
+                  <Field label="Job Date (DD/MM/YY)"><input className={inputCls} style={inputStyle} value={report.jobDate} onChange={(e) => updateField("jobDate", e.target.value)} /></Field>
+                  <Field label="Completion Date"><input className={inputCls} style={inputStyle} value={report.completionDate} onChange={(e) => updateField("completionDate", e.target.value)} placeholder="DD/MM/YY" /></Field>
+                  <Field label="Quotation"><input className={inputCls} style={inputStyle} value={report.quotation} onChange={(e) => updateField("quotation", e.target.value)} placeholder="e.g. CBQ-1109" /></Field>
+                  <Field label="Start Time"><input className={inputCls} style={inputStyle} value={report.startTime} onChange={(e) => updateField("startTime", e.target.value)} placeholder="e.g. 9:35 PM" /></Field>
+                  <Field label="End Time"><input className={inputCls} style={inputStyle} value={report.endTime} onChange={(e) => updateField("endTime", e.target.value)} placeholder="e.g. 9:50 PM" /></Field>
+                  <Field label="Equipment Details"><input className={inputCls} style={inputStyle} value={report.equipmentDetails} onChange={(e) => updateField("equipmentDetails", e.target.value)} /></Field>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: COLORS.steelLight }}>Work Description Rows</span>
+                    <button type="button" onClick={addLineItem} className="text-[11px] font-bold px-2 py-0.5 rounded flex items-center gap-1 cursor-pointer" style={{ background: COLORS.paperDark, color: COLORS.steel }}>
+                      <Plus size={11} /> Add Row
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(report.lineItems || []).map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                        <div className="col-span-1 text-center mono text-xs font-bold text-slate-500">{idx + 1}</div>
+                        <input className={`col-span-6 ${inputCls}`} style={inputStyle} value={item.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="Description..." />
+                        <input className={`col-span-2 ${inputCls}`} style={inputStyle} value={item.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} placeholder="Qty" />
+                        <input className={`col-span-2 ${inputCls}`} style={inputStyle} value={item.remarks} onChange={(e) => updateItem(idx, "remarks", e.target.value)} placeholder="Remarks" />
+                        <button type="button" onClick={() => removeLineItem(idx)} className="col-span-1 p-1.5 rounded text-red-600 hover:bg-red-50 flex justify-center cursor-pointer" title="Remove row">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <Field label="Materials"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 54 }} value={report.materials} onChange={(e) => updateField("materials", e.target.value)} placeholder="Materials used..." /></Field>
+                  <Field label="Attendees (one per line)"><textarea className={inputCls} style={{ ...inputStyle, minHeight: 54 }} value={report.attendeesText} onChange={(e) => updateField("attendeesText", e.target.value)} /></Field>
+                  <Field label="Customer Name (Feedback)"><input className={inputCls} style={inputStyle} value={report.feedbackCustomerName} onChange={(e) => updateField("feedbackCustomerName", e.target.value)} /></Field>
+                  <Field label="Customer Comments"><input className={inputCls} style={inputStyle} value={report.customerComments} onChange={(e) => updateField("customerComments", e.target.value)} /></Field>
+                </div>
+              </div>
+            )}
+
+            {/* VISUAL REPLICA OF COOL BOX SERVICE REPORT */}
+            <div className="mx-auto bg-white shadow-xl border border-slate-300" style={{ maxWidth: "790px", padding: "22px 26px", fontFamily: "Arial, Helvetica, sans-serif", color: "#1E293B" }}>
+              {/* TOP BRAND HEADER */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-stretch gap-1">
+                  <div className="font-black text-white flex items-center px-2.5 py-1 rounded-sm" style={{ background: "#C8102E", fontSize: "26px", letterSpacing: "0.5px", lineHeight: 1 }}>
+                    COOL
+                  </div>
+                  <div className="font-black text-white flex items-center px-2 py-1 rounded-sm" style={{ background: "#C8102E", fontSize: "26px", lineHeight: 1, border: "2px solid #fff", outline: "2px solid #C8102E" }}>
+                    BOX
+                  </div>
+                </div>
+                <div className="text-center flex-1">
+                  <div style={{ color: "#C8102E", fontWeight: 700, fontSize: "14px", direction: "rtl" }}>
+                    للأعمال الكهروميكانيكية ذ.م.م
+                  </div>
+                  <div style={{ color: "#C8102E", fontWeight: 800, fontSize: "12.5px", letterSpacing: "0.4px" }}>
+                    ELECTROMECHANICAL WORKS L.L.C
+                  </div>
+                </div>
+                <div className="rounded-lg p-0.5" style={{ border: "2.5px solid #C8102E" }}>
+                  <div className="rounded px-3 py-0.5 font-extrabold" style={{ border: "1px solid #C8102E", color: "#C8102E", fontSize: "22px", direction: "rtl", lineHeight: 1.15 }}>
+                    كول بوكس
+                  </div>
+                </div>
+              </div>
+
+              {/* SERVICE REPORT BADGE */}
+              <div className="text-center my-2">
+                <span className="inline-block text-white font-extrabold px-5 py-0.5 rounded" style={{ background: "#C8102E", fontSize: "13px", letterSpacing: "1.2px" }}>
+                  SERVICE REPORT
+                </span>
+              </div>
+
+              {/* METADATA GRID */}
+              <div className="grid grid-cols-12 gap-x-4 gap-y-1 text-[11.5px] mb-2">
+                <div className="col-span-8 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Customer Name :</span>
+                  <span className="flex-1 px-1 font-semibold min-h-[17px]" style={{ borderBottom: "1.3px dotted #B87A80" }}>{report.customerName}</span>
+                </div>
+                <div className="col-span-4 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Job No. :</span>
+                  <span className="flex-1 px-1 font-extrabold font-mono text-[15px]" style={{ color: "#C8102E" }}>{report.jobNo}</span>
+                </div>
+
+                <div className="col-span-8 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Job Location :</span>
+                  <span className="flex-1 px-1 font-semibold min-h-[17px]" style={{ borderBottom: "1.3px dotted #B87A80" }}>{report.jobLocation}</span>
+                </div>
+                <div className="col-span-4 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Job Date :</span>
+                  <span className="flex-1 px-1 font-semibold min-h-[17px]" style={{ borderBottom: "1.3px dotted #B87A80" }}>{report.jobDate}</span>
+                </div>
+
+                <div className="col-span-8 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Completion Date :</span>
+                  <span className="flex-1 px-1 font-semibold min-h-[17px]" style={{ borderBottom: "1.3px dotted #B87A80" }}>{report.completionDate}</span>
+                </div>
+                <div className="col-span-4 flex items-baseline gap-1.5">
+                  <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Quotation :</span>
+                  <span className="flex-1 px-1 font-semibold min-h-[17px]" style={{ borderBottom: "1.3px dotted #B87A80" }}>{report.quotation}</span>
+                </div>
+              </div>
+
+              {/* 4-COLUMN STATUS GRID */}
+              <table className="w-full border-collapse text-[11px] mb-1.5" style={{ border: "1.6px solid #C8102E" }}>
+                <thead>
+                  <tr style={{ background: "#FADADD", color: "#9E1B24" }}>
+                    <th className="py-1 px-2 font-bold" style={{ width: "14%", border: "1.2px solid #C8102E" }}>Job Code</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "16%", border: "1.2px solid #C8102E" }}>Job Status</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "44%", border: "1.2px solid #C8102E" }}>Equipment Details</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "26%", border: "1.2px solid #C8102E" }}>Timing</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="p-2 align-top" style={{ border: "1.2px solid #C8102E" }}>
+                      <div className="flex flex-col gap-1.5">
+                        {["AMC", "Non AMC", "Others"].map((code) => (
+                          <PreviewCheckbox key={code} label={code} checked={report.jobCode === code} onClick={() => updateField("jobCode", code)} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-2 align-top" style={{ border: "1.2px solid #C8102E" }}>
+                      <div className="flex flex-col gap-1.5">
+                        {["Completed", "Pending", "Carry Over"].map((st) => (
+                          <PreviewCheckbox key={st} label={st} checked={report.jobStatus === st} onClick={() => updateField("jobStatus", st)} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-2 align-top text-xs whitespace-pre-wrap" style={{ border: "1.2px solid #C8102E" }}>
+                      {report.equipmentDetails}
+                    </td>
+                    <td className="p-2 align-top" style={{ border: "1.2px solid #C8102E" }}>
+                      <div className="flex items-baseline gap-1 mb-2.5">
+                        <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Start Time :</span>
+                        <span className="flex-1 px-1 font-semibold min-h-[16px]" style={{ borderBottom: "1.2px dotted #B87A80" }}>{report.startTime}</span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>End Time :</span>
+                        <span className="flex-1 px-1 font-semibold min-h-[16px]" style={{ borderBottom: "1.2px dotted #B87A80" }}>{report.endTime}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* MAIN DESCRIPTION TABLE */}
+              <table className="w-full border-collapse text-[11.5px] mb-1.5" style={{ border: "1.6px solid #C8102E" }}>
+                <thead>
+                  <tr style={{ background: "#FADADD", color: "#9E1B24" }}>
+                    <th className="py-1 px-1.5 font-bold" style={{ width: "7%", border: "1.2px solid #C8102E" }}>Sl.No.</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "55%", border: "1.2px solid #C8102E" }}>Description</th>
+                    <th className="py-1 px-1.5 font-bold" style={{ width: "8%", border: "1.2px solid #C8102E" }}>Qty</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "30%", border: "1.2px solid #C8102E" }}>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayRows.map((row, idx) => {
+                    const isLast = idx === displayRows.length - 1;
+                    const cellStyle = {
+                      borderLeft: "1.2px solid #C8102E",
+                      borderRight: "1.2px solid #C8102E",
+                      borderBottom: isLast ? "1.6px solid #C8102E" : "1.2px dotted #B87A80",
+                      height: "23px",
+                      padding: "3px 6px",
+                      verticalAlign: "top",
+                    };
+                    return (
+                      <tr key={idx}>
+                        <td style={{ ...cellStyle, textAlign: "center", fontWeight: 600 }}>{row.slNo}</td>
+                        <td style={{ ...cellStyle, whiteSpace: "pre-wrap" }}>{row.description}</td>
+                        <td style={{ ...cellStyle, textAlign: "center", fontWeight: 600 }}>{row.qty}</td>
+                        <td style={{ ...cellStyle, whiteSpace: "pre-wrap", fontSize: "10.5px" }}>{row.remarks}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* MATERIALS */}
+              <div className="p-2 mb-1.5 text-[11.5px]" style={{ border: "1.6px solid #C8102E", minHeight: "68px" }}>
+                <div className="font-bold mb-1" style={{ color: "#9E1B24" }}>Materials :</div>
+                <div className="min-h-[38px] pb-1 whitespace-pre-wrap" style={{ borderBottom: "1.2px dotted #B87A80", lineHeight: "19px" }}>
+                  {report.materials}
+                </div>
+              </div>
+
+              {/* CUSTOMER FEEDBACK + ATTENDEES */}
+              <table className="w-full border-collapse text-[11px] mb-2" style={{ border: "1.6px solid #C8102E" }}>
+                <thead>
+                  <tr style={{ background: "#FADADD", color: "#9E1B24" }}>
+                    <th className="py-1 px-2 font-bold" style={{ width: "70%", border: "1.2px solid #C8102E" }}>Customer Feedback</th>
+                    <th className="py-1 px-2 font-bold" style={{ width: "30%", border: "1.2px solid #C8102E" }}>Attendees</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="p-0 align-top" style={{ border: "1.2px solid #C8102E" }}>
+                      <div className="grid grid-cols-12" style={{ borderBottom: "1.2px solid #C8102E" }}>
+                        <div className="col-span-3 p-2 flex flex-col gap-1.5" style={{ borderRight: "1.2px solid #C8102E" }}>
+                          {["Excellent", "Good", "Average", "Poor"].map((opt) => (
+                            <PreviewCheckbox
+                              key={opt}
+                              label={opt}
+                              checked={report.feedbackRating === opt}
+                              onClick={() => updateField("feedbackRating", report.feedbackRating === opt ? "" : opt)}
+                            />
+                          ))}
+                        </div>
+                        <div className="col-span-5 p-2 flex flex-col justify-center gap-3" style={{ borderRight: "1.2px solid #C8102E" }}>
+                          <div className="flex items-baseline gap-1">
+                            <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Customer Name :</span>
+                            <span className="flex-1 px-1 font-semibold min-h-[16px]" style={{ borderBottom: "1.2px dotted #B87A80" }}>{report.feedbackCustomerName}</span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="font-bold whitespace-nowrap" style={{ color: "#9E1B24" }}>Date :</span>
+                            <span className="flex-1 px-1 font-semibold min-h-[16px]" style={{ borderBottom: "1.2px dotted #B87A80" }}>{report.feedbackDate}</span>
+                          </div>
+                        </div>
+                        <div className="col-span-4 p-2 flex flex-col justify-end text-center">
+                          <div className="pt-1 font-bold" style={{ borderTop: "1.2px dotted #B87A80", color: "#9E1B24" }}>Customer Sign</div>
+                        </div>
+                      </div>
+                      <div className="p-2" style={{ minHeight: "56px" }}>
+                        <div className="font-bold" style={{ color: "#9E1B24" }}>Customer Comments :</div>
+                        <div className="mt-1 whitespace-pre-wrap">{report.customerComments}</div>
+                      </div>
+                    </td>
+                    <td className="p-2.5 align-top" style={{ border: "1.2px solid #C8102E" }}>
+                      <div className="flex flex-col justify-between h-full" style={{ minHeight: "148px" }}>
+                        <div className="font-semibold text-[12.5px] leading-snug space-y-0.5">
+                          {attendeeList.map((n, idx) => <div key={idx}>{n}</div>)}
+                        </div>
+                        <div className="text-center mt-3">
+                          {report.leadSignature && (
+                            <div className="italic font-bold text-xs text-slate-700 mb-0.5">{report.leadSignature}</div>
+                          )}
+                          <div className="pt-1 font-bold" style={{ borderTop: "1.2px dotted #B87A80", color: "#9E1B24" }}>Signature</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* RED CONTACT FOOTER */}
+              <div className="rounded px-4 py-1.5 flex flex-wrap items-center justify-around gap-3 text-white font-bold text-[11px]" style={{ background: "#C8102E" }}>
+                <span>+971 50 227 0824</span>
+                <span>Ajman - UAE</span>
+                <span>info@coolbox.ae</span>
+                <span>www.coolbox.ae</span>
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM ACTION BAR */}
+          <div className="px-5 py-3 bg-white border-t flex flex-wrap items-center justify-between gap-2 flex-shrink-0" style={{ borderColor: COLORS.line }}>
+            <div className="text-xs text-slate-500">
+              Tip: Click <strong>DOWNLOAD PNG</strong> for an instant image receipt or <strong>PRINT / SAVE PDF</strong> for a vector A4 PDF.
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => downloadServiceReportPng(report)}
+                className="disp px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                style={{ background: "#C8102E", color: "#fff" }}
+              >
+                <Download size={14} /> DOWNLOAD PNG
+              </button>
+              <button
+                type="button"
+                onClick={() => printServiceReportPdf(report)}
+                className="disp px-3.5 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                style={{ background: COLORS.safety, color: COLORS.steelDark }}
+              >
+                <Printer size={14} /> PRINT / SAVE PDF
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="disp px-4 py-1.5 rounded-md text-xs font-bold tracking-wider uppercase cursor-pointer"
+                style={{ background: COLORS.steel, color: "#fff" }}
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DraggableModal>
   );
 }
 
@@ -3506,6 +5701,7 @@ function EditCrewModal({ job, workers, vehicles, categories, jobOrders, amcContr
 
 function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, onSubmit }) {
   const [reason, setReason] = useState("");
+  const [workDone, setWorkDone] = useState(job.workDone || "");
   const [vehicleId, setVehicleId] = useState(job.vehicleId || "");
   const [selectedWorkers, setSelectedWorkers] = useState(job.workerIds || []);
 
@@ -3534,8 +5730,8 @@ function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, on
         </div>
         <div className="p-5 overflow-y-auto">
           <div className="text-[11px] mb-3" style={{ color: "#8A8F84" }}>
-            {isHold ? `Specify the reason for putting job #${job.jobOrderNo} (${job.clientName}) on hold. Also confirm the vehicle and crew members who worked today.` 
-                    : `Marking job #${job.jobOrderNo} (${job.clientName}) as completed. Confirm the final vehicle and crew members who performed the work.`}
+            {isHold ? `Specify the reason for putting job #${job.jobOrderNo} (${job.clientName}) on hold. Also confirm the vehicle, work done so far, and crew members.` 
+                    : `Marking job #${job.jobOrderNo} (${job.clientName}) as completed. Record the work done summary and confirm the final vehicle and crew members.`}
           </div>
           
           {isHold && (
@@ -3544,6 +5740,11 @@ function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, on
                 placeholder="e.g. Waiting for spare parts, Client site closed, Safety hold..." autoFocus />
             </Field>
           )}
+
+          <Field label={isHold ? "Work Done So Far / Handover Notes" : "Work Done Summary / Completion Notes"}>
+            <textarea className={inputCls} style={{ ...inputStyle, minHeight: 64 }} value={workDone} onChange={(e) => setWorkDone(e.target.value)}
+              placeholder={isHold ? "Summarize what was completed before pausing..." : "Describe work performed, parts replaced, tests passed..."} />
+          </Field>
 
           <div className="grid grid-cols-1 gap-x-4 mb-2">
             <Field label="Vehicle Used Today">
@@ -3575,7 +5776,7 @@ function JobWrapUpModal({ action, job, workers, vehicles, jobOrders, onClose, on
             <button
               onClick={() => {
                 if (isHold && !reason.trim()) { alert("Please enter a reason for putting work on hold."); return; }
-                onSubmit({ onHoldReason: isHold ? reason.trim() : "", vehicleId, workerIds: selectedWorkers, status: isHold ? "On Hold" : "Completed" });
+                onSubmit({ onHoldReason: isHold ? reason.trim() : "", workDone: workDone.trim(), vehicleId, workerIds: selectedWorkers, status: isHold ? "On Hold" : "Completed" });
               }}
               className="flex-1 disp py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
               style={{ background: btnColor, color: "#fff" }}
